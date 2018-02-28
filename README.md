@@ -20,6 +20,7 @@ mkdir build
 cd build
 cmake ../remotesensingProject
 make
-./main
+./test_read_tiff 0
+./test_read_tiff 1
 ```
 

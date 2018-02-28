@@ -1,0 +1,115 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc} 
+%\usepackage[french]{babel}
+\usepackage{charter} 
+\usepackage{graphicx} 
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amsfonts}
+\usepackage{geometry}
+\usepackage{cancel}
+\usepackage{enumerate}
+\usepackage{stmaryrd}
+\usepackage{mathrsfs}
+\usepackage{amssymb}
+\geometry{hmargin=2.7cm,vmargin=2.5cm}
+
+\usepackage{lastpage}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0.5pt}
+\fancyhead[L]{}
+\fancyhead[R]{}
+\fancyfoot{}
+\fancyfoot[L]{RS -- Quentin CHAN-WAI-NAM}
+\fancyfoot[R]{\thepage/\pageref{LastPage}}
+
+\fancypagestyle{plain}{
+	\renewcommand{\headrulewidth}{0pt}
+	\renewcommand{\footrulewidth}{0.5pt}
+	\fancyhead[L]{}
+	\fancyhead[R]{}
+	\fancyfoot{}
+	\fancyfoot[L]{RS -- Quentin CHAN-WAI-NAM}
+	\fancyfoot[R]{\thepage/\pageref{LastPage}}
+}
+
+\def\thesubsection{\thesection.\alph{subsection}}
+
+\makeatletter
+\def\thm@space@setup{%
+  \thm@preskip=15pt \thm@postskip=15pt
+}
+\makeatother
+
+\linespread{1.3}
+
+\newcommand{\abs} [1] {\left| #1 \right|}
+\newcommand{\scal}[2]{\left\langle #1 , #2 \right\rangle}
+\newcommand{\dif}[0]{\text{\:d}}
+\newcommand{\Dpar}[2]{\frac{\partial#1}{\partial#2}}
+
+\newcommand{\ceil}[1]{\lceil#1\rceil}
+\newcommand{\floor}[1]{\lfloor#1\rfloor}
+
+\newcommand{\Four}[1]{\widehat{#1}}
+
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+
+\def\R{\mathbb{R}}
+\def\Z{\mathbb{Z}}
+\def\N{\mathbb{N}}
+\def\e{\text{e}}
+\def\d{\text{d}}
+\def\Re{\text{Re}}
+
+\def\Per{\text{Per}\,}
+\def\Ker{\text{Ker}\,}
+\def\Im{\text{Im}\,}
+
+\def\Ind{\mathbf{1}}
+
+\newcommand{\Binom}[2]{\begin{pmatrix} #1 \\ #2 \end{pmatrix}}
+
+\newcommand{\vect}[1]{\mathbf{#1}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{RS: Epipolar Plane Image Analysis\\Application to SkySat videos}
+\date{\today}
+\author{Quentin CHAN-WAI-NAM}
+
+\theoremstyle{definition}
+\newtheorem{question}{}
+
+\begin{document}
+\maketitle
+
+
+\section{Choice of the article and objective}
+
+
+We first investigated two different articles that describe two different methods for estimating depths maps from videos.
+\begin{itemize}
+ \item \cite{art:perez13:tvl1} describes an algorithm that estimates the optical flow given two images using a global optimization scheme minimizing a data attachment term and a regularization using the total variation of the flow. The idea is that the brightness $I$ of single points along their trajectories should be constant in time, leading to the optical flow constraint equation
+ \[ \nabla I \cdot \vect{u} + \Dpar{I}{t} = 0 \]
+ where $\vect{u}$ is the optical flow (the velocity vector field). The article then introduces a regularization on $\vect{u}$ (its total variation) and reformulates the problem in order to adapt to discrete sequences of images so that the attachent term consists in minimizing some $L^1$ term. In order to solve the subsequent global optimization problem, the authors propose a numerical scheme based on alternate optimization scheme. Finally, the authors investigate the influence of the several parameters of the algorithm -- noticeably the weight $\lambda$ of the data attachment term -- on the precision of the estimation of the optical flow and the sensitivity to noise.
+ 
+ In our case, the optical flow computed with this algorithm could be interpreted as some disparity measurement. An interesting point is that the computation of the optical flow can be done on any pair of images, even if not rectified.
+ 
+ \item \cite{art:kim13:lfields} describes a method for computing precise and exhaustive depth maps using ``light fields'', that is a dense set of images captures along a linear path. By concatenating one line of the rectified images together, one obtains an ``epipolar-plane image'' (EPI), in which a single scene point appears as a linear trace which slope is related to its distance to the camera. Thus, by estimating these slopes, one can reconstruct the depth of each point of the scene.
+ 
+ The authors use very high definition images, so that the article includes several implementation details in order to ensure computational feasibility, both in terms of space (sparse representation of light fields) and computational power. For instance, they prefer local optimization near object boundaries and propagation to nearby areas in a fine-to-coarse approach to global optimization on the whole image. In the end, the method seems relatively fast, precise and robust to inconsistencies and outliers like noise or temporary occlusions.
+\end{itemize}
+
+
+We chose to work on the latter article. The objective of the project is then to implement the method presented by Kim et al. in \cite{art:kim13:lfields} and investigate how it performs with videos taken from SkySat. We will first investigate the case in which the images from the video are pre-rectified. Then we will investigate more complicated situations, for instance increasing the density of the images and considering non-pre-rectified sequences.
+
+
+\bibliographystyle{plain}
+\bibliography{bibliography}
+
+
+\end{document}

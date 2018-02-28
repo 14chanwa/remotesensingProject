@@ -1,7 +1,7 @@
 # remotesensingProject
 
 
-This project implements some depth map estimation using 3D light fields.
+Implements some depth map estimation using 3D light fields.
 
 
 ### Dependancies
@@ -17,9 +17,13 @@ Assume we are in the folder containing `README.md`:
 
 ``
 mkdir build
+
 cd build
+
 cmake ../remotesensingProject
+
 make
+
 ./main
 ``
 

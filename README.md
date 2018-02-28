@@ -15,15 +15,11 @@ OpenCV 3.x should be installed and findable.
 
 Assume we are in the folder containing `README.md`:
 
-``
+```
 mkdir build
-
 cd build
-
 cmake ../remotesensingProject
-
 make
-
 ./main
-``
+```
 

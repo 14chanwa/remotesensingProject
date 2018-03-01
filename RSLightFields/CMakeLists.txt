@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.7)
 
 ## RSLightFields
 
@@ -12,7 +12,9 @@ project( RSLightFields )
 set(PROJECT_DESCRIPTION "Implements some depth map estimator from 3D light fields")
 
 # Set C++ compiler flags.
-set(CMAKE_CXX_FLAGS "")
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_FLAGS "-std=c++17 -lstdc++fs")
 
 # Specify library content :
 include_directories(include)
@@ -26,6 +28,7 @@ add_library( RSLightFields ${LIB_SOURCES} ${LIB_HEADERS} )
 # Add and link OpenCV to the library
 find_package( OpenCV REQUIRED )
 target_link_libraries( RSLightFields ${OpenCV_LIBS} )
+target_link_libraries( RSLightFields stdc++fs)
 
 # Build tests and link them to 
 file( GLOB TEST_SOURCES tests/*.cpp )

@@ -2,6 +2,8 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <iostream>
 #include <string>
+#include <rslf.hpp>
+
 
 /*
  * test_skysat_rectified_gallery.cpp
@@ -12,11 +14,10 @@
  * Provide argument 0 or 1 to read galleries with steps 18 or 1.
  */
 
+
 #define PATH_TO_SKYSAT_RECTIFIED_STEP1 "../data/skysat_lasvegas_rectified/rectified_equalized_resized_frames_step1/"
 #define PATH_TO_SKYSAT_RECTIFIED_STEP18 "../data/skysat_lasvegas_rectified/rectified_equalized_resized_frames_step18/"
 
-
-std::string type2str(int type);
 
 int main(int argc, char* argv[])
 {
@@ -78,7 +79,7 @@ int main(int argc, char* argv[])
         {
         
             std::cout << "#" << current_image_counter << " Image size " << height << "x" << width << " type " <<
-                type2str(img.type()) << std::endl;
+                rslf::type2str(img.type()) << std::endl;
             //~ std::cout << "Depth " << img.depth() << " channels " << img.channels() << std::endl;
            
             //~ std::cout << "First elements:" << std::endl;
@@ -129,30 +130,6 @@ int main(int argc, char* argv[])
     } while (!stop_flag);
     
     return 0;
-}
-
-
-std::string type2str(int type) {
-    std::string r;
-
-    uchar depth = type & CV_MAT_DEPTH_MASK;
-    uchar chans = 1 + (type >> CV_CN_SHIFT);
-
-    switch ( depth ) {
-    case CV_8U:  r = "8U"; break;
-    case CV_8S:  r = "8S"; break;
-    case CV_16U: r = "16U"; break;
-    case CV_16S: r = "16S"; break;
-    case CV_32S: r = "32S"; break;
-    case CV_32F: r = "32F"; break;
-    case CV_64F: r = "64F"; break;
-    default:     r = "User"; break;
-    }
-
-    r += "C";
-    r += (chans+'0');
-
-    return r;
 }
 
 /*

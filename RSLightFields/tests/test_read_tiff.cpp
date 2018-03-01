@@ -2,6 +2,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <iostream>
 #include <string>
+#include <rslf_io.hpp>
 
 /*
  * test_read_tiff.cpp
@@ -34,10 +35,12 @@ int main(int argc, char* argv[])
     switch(chosen_image)
     {
         case 0:
-            img = cv::imread("../data/CCITT_1.TIF", CV_LOAD_IMAGE_COLOR);
+            img = rslf::read_img_from_file("../data/", "CCITT_1", "TIF", CV_LOAD_IMAGE_COLOR);
+            // cv::imread("../data/CCITT_1.TIF", CV_LOAD_IMAGE_COLOR);
             break;
         default:
-            img = cv::imread("../data/000.tif", CV_LOAD_IMAGE_UNCHANGED);
+            img = rslf::read_img_from_file("../data/", "000", "tif", CV_LOAD_IMAGE_UNCHANGED);
+            // cv::imread("../data/000.tif", CV_LOAD_IMAGE_UNCHANGED);
             break;
     }
     

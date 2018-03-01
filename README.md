@@ -18,7 +18,7 @@ Assume we are in the folder containing `README.md`:
 ```
 mkdir build
 cd build
-cmake ../remotesensingProject
+cmake ../RSLightFields
 make
 ./test_read_tiff 0
 ./test_read_tiff 1

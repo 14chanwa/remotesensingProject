@@ -3,6 +3,12 @@
 #include <iostream>
 #include <string>
 
+/*
+ * test_read_tiff.cpp
+ * 
+ * Reads example tiff files.
+ * Provide argument 0 or 1 to read different files.
+ */
 
 std::string type2str(int type);
 

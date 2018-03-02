@@ -31,6 +31,7 @@ cv::Mat rslf::build_row_epi_from_imgs
 #endif
 
     // Builds rows by copy
+#pragma omp parallel for
     for (int i = 0; i < imgs.size(); i++)
     {
         imgs[i].row(row).copyTo(epi.row(i));
@@ -81,6 +82,7 @@ cv::Mat rslf::build_row_epi_from_path
     );
     
     // For each file, read the corresponding row
+#pragma omp parallel for
     for (int i=0; i<list_files.size(); i++)
     {
 #ifdef _RSLF_EPI_DEBUG

@@ -10,9 +10,7 @@
 void rslf::plot_mat
 (
     cv::Mat img, 
-    std::string window_name,
-    int fill_row_red,
-    int fill_col_red
+    std::string window_name
 )
 {
     // Copy and scale values

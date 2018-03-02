@@ -9,6 +9,8 @@ Implements some depth map estimation using 3D light fields.
 
 OpenCV 3.x should be installed and findable.
 
+The program should be compiled with C++11 standards. In particular, this program makes use of `<experimental/filesystem>` and its corresponding library `stdc++fs`.
+
 
 ### Compiling with the right paths
 

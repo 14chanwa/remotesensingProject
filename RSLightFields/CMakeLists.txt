@@ -12,9 +12,9 @@ project( RSLightFields )
 set(PROJECT_DESCRIPTION "Implements some depth map estimator from 3D light fields")
 
 # Set C++ compiler flags.
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS "-std=c++17 -lstdc++fs")
+set(CMAKE_CXX_FLAGS "-std=c++11 -lstdc++fs")
 
 # Specify library content :
 include_directories(include)

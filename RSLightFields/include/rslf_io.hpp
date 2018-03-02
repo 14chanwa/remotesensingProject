@@ -41,6 +41,55 @@ namespace rslf
         std::string extension,
         int cv_read_mode = CV_LOAD_IMAGE_GRAYSCALE 
     );
+    
+    /**
+     * Writes the given cv::Mat to a .yml file in the given folder.
+     * 
+     * @param img The cv::Mat to save.
+     * @param path_to_folder Path to the folder where to save the file.
+     * @param name_we Name of the file without path or extension.
+     * @param extension The extension of the file.
+     */
+    void write_mat_to_yml
+    (
+        cv::Mat img,
+        std::string path_to_folder, 
+        std::string name_we,
+        std::string extension = "yml"
+    );
+    
+    /**
+     * Writes the given cv::Mat to an image in the given folder.
+     * 
+     * @param img The cv::Mat to save.
+     * @param path_to_folder Path to the folder where to save the file.
+     * @param name_we Name of the file without path or extension.
+     * @param extension The extension of the file.
+     * @param compression_params Compression parameters.
+     */
+    void write_mat_to_imgfile
+    (
+        cv::Mat img,
+        std::string path_to_folder, 
+        std::string name_we,
+        std::string extension = "png",
+        std::vector<int> compression_params = std::vector<int>()
+    );
+    
+    /**
+     * Reads the given .yml file in the given folder to a cv::Mat.
+     * 
+     * @param path_to_folder Path to the folder where to read the file.
+     * @param name_we Name of the file without path or extension.
+     * @param extension The extension of the file.
+     * @return A cv::Mat containing the image
+     */
+    cv::Mat read_mat_from_yml
+    (
+        std::string path_to_folder, 
+        std::string name_we,
+        std::string extension = "yml"
+    );
 
 }
 

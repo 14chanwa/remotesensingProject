@@ -6,8 +6,9 @@
 #include <vector>
 
 
-//#define _RSLF_IO_VERBOSE
-//#define _RSLF_IO_DEBUG
+//~ #define _RSLF_IO_VERBOSE
+//~ #define _RSLF_IO_DEBUG
+
 
 cv::Mat rslf::read_img_from_file
 (
@@ -66,4 +67,50 @@ std::vector<cv::Mat> rslf::read_imgs_from_folder
     return imgs;
 }
 
+void rslf::write_mat_to_yml
+(
+    cv::Mat img,
+    std::string path_to_folder, 
+    std::string name_we,
+    std::string extension
+)
+{
+#ifdef _RSLF_IO_VERBOSE
+    std::cout << "Write " << path_to_folder + name_we + "." + extension << std::endl;
+#endif
+    cv::FileStorage storage(path_to_folder + name_we + "." + extension, cv::FileStorage::WRITE);
+    storage << "img" << img;
+    storage.release();  
+}
 
+void rslf::write_mat_to_imgfile
+(
+    cv::Mat img,
+    std::string path_to_folder, 
+    std::string name_we,
+    std::string extension,
+    std::vector<int> compression_params
+)
+{
+#ifdef _RSLF_IO_VERBOSE
+    std::cout << "Write " << path_to_folder + name_we + "." + extension << std::endl;
+#endif
+    cv::imwrite(path_to_folder + name_we + "." + extension, img);
+}
+
+cv::Mat rslf::read_mat_from_yml
+(
+    std::string path_to_folder, 
+    std::string name_we,
+    std::string extension
+)
+{
+#ifdef _RSLF_IO_VERBOSE
+    std::cout << "Read " << path_to_folder + name_we + "." + extension << std::endl;
+#endif
+    cv::Mat img;
+    cv::FileStorage storage(path_to_folder + name_we + "." + extension, cv::FileStorage::READ);
+    storage.getFirstTopLevelNode() >> img;
+    storage.release();
+    return img;
+}

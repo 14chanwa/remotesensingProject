@@ -3,13 +3,16 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <string>
 
-std::string rslf::type2str(int type) {
+// Courtesy of Octopus https://stackoverflow.com/a/17820615
+std::string rslf::type2str(int type) 
+{
     std::string r;
 
     uchar depth = type & CV_MAT_DEPTH_MASK;
     uchar chans = 1 + (type >> CV_CN_SHIFT);
 
-    switch ( depth ) {
+    switch ( depth ) 
+    {
     case CV_8U:  r = "8U"; break;
     case CV_8S:  r = "8S"; break;
     case CV_16U: r = "16U"; break;

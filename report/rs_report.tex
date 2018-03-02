@@ -71,6 +71,9 @@
 
 \def\Ind{\mathbf{1}}
 
+% Width of the EPIs
+\def\epiWidth{0.8}
+
 \newcommand{\Binom}[2]{\begin{pmatrix} #1 \\ #2 \end{pmatrix}}
 
 \newcommand{\vect}[1]{\mathbf{#1}}
@@ -108,6 +111,45 @@ We first investigated two different articles that describe two different methods
 We chose to work on the latter article. The objective of the project is then to implement the method presented by Kim et al. in \cite{art:kim13:lfields} and investigate how it performs with videos taken from SkySat. We will first investigate the case in which the images from the video are pre-rectified. Then we will investigate more complicated situations, for instance increasing the density of the images and considering non-pre-rectified sequences.
 
 
+\section{Sample EPIs from Skysat (step 18)}
+
+
+We first write codes to compute and display EPIs. These correspond to \verb#test_build_row_epi.cpp#. We investigate possible artefacts that appear in the EPIs extracted from the rectified images of Skysat, with step $18$.
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\epiWidth\textwidth]{1519991014186_1st.png}\\
+  \includegraphics[width=\epiWidth\textwidth]{1519991014186_epi.png}
+  \caption{Row 600 -- We can see that the cars produce some artefacts.}
+\end{figure}
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\epiWidth\textwidth]{1519991030012_1st.png}\\
+  \includegraphics[width=\epiWidth\textwidth]{1519991030012_epi.png}
+  \caption{Row 380 -- The high building has a very steep slope.}
+\end{figure}
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\epiWidth\textwidth]{1519991772641_1st.png}\\
+  \includegraphics[width=\epiWidth\textwidth]{1519991772641_epi.png}
+  \caption{Row 400 -- The specular reflexions produce artefacts.}
+\end{figure}
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\epiWidth\textwidth]{1519992108606_1st.png}\\
+  \includegraphics[width=\epiWidth\textwidth]{1519992108606_epi.png}
+  \caption{Row 920 -- The shadows produce empty black zones.}
+\end{figure}
+
+
+\clearpage
 \bibliographystyle{plain}
 \bibliography{bibliography}
 

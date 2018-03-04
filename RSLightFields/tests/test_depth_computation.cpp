@@ -2,6 +2,7 @@
 #include <string>
 #include <iostream>
 #include <rslf.hpp>
+#include <rslf_depth_computation.hpp>
 #include <chrono>
 
 /*
@@ -37,7 +38,7 @@ int main(int argc, char* argv[])
     
     std::cout << d_list.size() << " d values requested" << std::endl;
     
-    rslf::DepthComputer1D depth_computer_1d(epi, d_list);
+    rslf::DepthComputer1D<float> depth_computer_1d(epi, d_list);
     depth_computer_1d.run();
     
     return 0;

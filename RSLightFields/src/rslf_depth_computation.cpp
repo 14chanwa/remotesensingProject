@@ -20,7 +20,6 @@ float rslf::interpolation_1d_nearest_neighbour<float>
     int rounded_index = (int)std::round(index);
     if (rounded_index < 0 || rounded_index > line_matrix.cols - 1)
         return std::nan("");
-    
     return line_matrix.at<float>(0, rounded_index);
 }
 

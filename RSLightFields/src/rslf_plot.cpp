@@ -41,20 +41,22 @@ cv::Mat rslf::copy_and_scale_uchar
 )
 {
     cv::Mat res;
+    img.copyTo(res);
     // If the dtype is not a multiple of uchar
     if (img.type() % 8 != 0) {
         // Copy and scale values
         // Find min and max values
         double min, max;
         cv::minMaxLoc(img, &min, &max);
+        res -= min;
         // Copy and scale values to uchar
-        img.convertTo(res, CV_8U, 255.0/(max-min));
+        res.convertTo(res, CV_8U, 255.0/(max-min));
     } 
-    else 
-    {
-        // Only copy values
-        img.copyTo(res);
-    }
+    //~ else 
+    //~ {
+        //~ // Only copy values
+        //~ img.copyTo(res);
+    //~ }
     return res;
 }
 

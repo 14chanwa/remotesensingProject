@@ -33,13 +33,22 @@ int main(int argc, char* argv[])
     cv::Mat epi = rslf::build_row_epi_from_imgs(list_mat, inspected_row);
     
     std::vector<float> d_list;
-    for (int i=0; i<41; i++)
-        d_list.push_back(-2 + 0.1 * i);
+    for (int i=0; i<31; i++)
+        d_list.push_back(0.1 * i);
+    for (int i=1; i<31; i++)
+        d_list.push_back(-0.1 * i);
     
     std::cout << d_list.size() << " d values requested" << std::endl;
     
     rslf::DepthComputer1D<float> depth_computer_1d(epi, d_list);
     depth_computer_1d.run();
+    
+    cv::Mat coloured_epi = depth_computer_1d.get_coloured_epi();
+    
+    rslf::plot_mat(epi, "EPI");
+    rslf::plot_mat(coloured_epi, "EPI + depth");
+    
+    cv::waitKey();
     
     return 0;
 }

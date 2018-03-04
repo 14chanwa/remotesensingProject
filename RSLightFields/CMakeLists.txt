@@ -14,7 +14,7 @@ set(PROJECT_DESCRIPTION "Implements some depth map estimator from 3D light field
 # Set C++ compiler flags.
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -lstdc++fs ${OpenMP_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -lstdc++fs -fopenmp")
 
 # Specify library content :
 include_directories(include)

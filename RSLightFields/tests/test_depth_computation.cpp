@@ -27,28 +27,60 @@ int main(int argc, char* argv[])
     
     // Load all images in folder
     std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/skysat_lasvegas_rectified/rectified_equalized_resized_frames_step18/", "tif", CV_LOAD_IMAGE_UNCHANGED);
+    //~ std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/mansion_image_resized/", "jpg", CV_LOAD_IMAGE_UNCHANGED);
     
     std::cout << list_mat.size() << " images read" << std::endl;
     
     cv::Mat epi = rslf::build_row_epi_from_imgs(list_mat, inspected_row);
+    //~ epi.convertTo(epi, CV_32FC3);
     
     std::vector<float> d_list;
-    for (int i=0; i<31; i++)
-        d_list.push_back(0.1 * i);
-    for (int i=1; i<31; i++)
-        d_list.push_back(-0.1 * i);
+    float d_min = -2.0;
+    float d_max = 4.0;
+    float interval = 0.05;
+    for (int i=0; i<(d_max-d_min)/interval; i++)
+        d_list.push_back(d_min + interval * i);
     
     std::cout << d_list.size() << " d values requested" << std::endl;
     
+    //~ rslf::DepthComputer1D<cv::Vec3f> depth_computer_1d(epi, d_list);
     rslf::DepthComputer1D<float> depth_computer_1d(epi, d_list);
     depth_computer_1d.run();
     
+    std::cout << "Plotting" << std::endl;
+    
     cv::Mat coloured_epi = depth_computer_1d.get_coloured_epi();
+    
+    // Save imgs 
+    // Base name
+    // https://stackoverflow.com/questions/31255486/c-how-do-i-convert-a-stdchronotime-point-to-long-and-back
+    auto now = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+    auto ms = std::chrono::time_point_cast<std::chrono::milliseconds>(now).time_since_epoch().count();
+    
+    std::string base_filename = std::to_string(ms);
+    std::cout << "Base name: " << base_filename << std::endl;
+    
+    rslf::write_mat_to_imgfile
+    (
+        epi,
+        "../output/", 
+        base_filename + "_epi",
+        "png"
+    );
+    rslf::write_mat_to_imgfile
+    (
+        coloured_epi,
+        "../output/", 
+        base_filename + "_epi_colored",
+        "png"
+    );
     
     rslf::plot_mat(epi, "EPI");
     rslf::plot_mat(coloured_epi, "EPI + depth");
     
     cv::waitKey();
+    
+    
     
     return 0;
 }

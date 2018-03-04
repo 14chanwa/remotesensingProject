@@ -152,6 +152,76 @@ We first write codes to compute and display EPIs. We investigate possible artefa
 \end{figure}
 
 
+\section{First rough estimation of the disparities}
+
+
+\paragraph{Principle} We apply a very simplified version of the first step of the ``fine to coarse'' approach of \cite{art:kim13:lfields}: we take some EPI $E$ corresponding to a fixed $v$, which dimensions are $S$ along the rows and $U$ along the columns. We work only on one line of this EPI (the center line, at $\widehat{s} = S / 2$. Let $d_\text{list} = \left\{d_1, \cdots, d_D \right\}$ be a search set of disparities. We compute the set of radiances $\mathcal{R}$ for all couples $(u, d)$:
+\[ \mathcal{R}(u, d) = \left\{ E(u + (\widehat{s} - s) d, s) \; | \; s = 0 \cdots S-1 \right\}. \]
+
+We then compute a score $S(u, d)$ defined as:
+\[ S(u, d) = \frac{1}{\abs{\mathcal{R}(u, d)}} \sum_{\mathbf{r} \in \mathcal{R}(u, d)} K(\mathbf{r} - \overline{\mathbf{r}})\]
+where $\mathbf{r}$ can be a float, or in the case of the images of the mansion, a tricolor vector, and $K$ is a ``kernel''. We choose the kernel presented in the article, i.e.
+\[ K(\mathbf{r}) = \left\{ 
+\begin{array}{l}
+1 - \norm{\mathbf{r} / h}^2 \qquad \text{if $\norm{\mathbf{r} / h} < 1$} \\
+0 \qquad \text{else}                            
+\end{array} \right. .
+\]
+We name this kernel the ``bandwidth kernel'' (and we take $h = 0.2$ arbitrarily for now).
+
+$\overline{\mathbf{r}}$ is a parameter that depends on $(u, d)$: following the article, we perform a truncated mean-shift algorithm (10 iterations), with $\overline{\mathbf{r}}_0 = E(u, \widehat{s})$ and
+\[ \overline{\mathbf{r}} \leftarrow \frac{\sum_{\mathbf{r} \in \mathcal{R}(u, d)} K(\mathbf{r} - \overline{\mathbf{r}}) \mathbf{r}}{\sum_{\mathbf{r} \in \mathcal{R}(u, d)} K(\mathbf{r} - \overline{\mathbf{r}})}\]
+prior to the computation of $S(u, d)$.
+
+Finally, for each $u$, we select the $d$ with the best score. We discard scores $< 0.01$ ; if no score is available, then we take $d=0$. We apply a linear median filter (along the $u$ dimension only for now) on the resulting values $d$ (we choose a filter size of $5$).
+
+We propagate the disparities from $\widehat{s}$ to the other $s$ simply by drawing the depths along the lines $u + (\widehat{s} - s)d$ and respecting the occlusions (a point with higher disparity will be ``occluding'' a point with a lesser disparity).
+
+
+\paragraph{Technical difficulties} A line defined by $(u + (\widehat{s} - s) d, s)$ will very certainly end up going out of the image. Moreover, these coordinates are not integer coordinates. We thus take the following decisions:
+\begin{itemize}
+ \item Values outside of the image are considered \emph{nan} and not taken into account in $\mathcal{R}(u, d)$.
+ \item We have yet to decide on some proper interpolation method for computing non-integer values of $E$. For now, we choose a simple linear interpolation along the line $E(u, \cdot)$.
+ \item The complexity of the algorithm increases quite a bit with the dimensions of the image. We might implement the algorithms using GPUs, but now we use tricks like OpenMP.
+\end{itemize}
+We also created a template code so as to be able to adapt to different data types for $E$ (e.g. \verb#float#, \verb#uint#, \verb#cv::Vec3b#...).
+
+
+\paragraph{Results} We choose $d_\text{list} = \left\{-2.0, -2.05, \cdots, 3.95, 4.0\right\}$. We end up with the following results. We expect to improve these using confidence scores $C_e$ as in the article for instance, and computing depths for more $s$ than only $\widehat{s}$.
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\epiWidth\textwidth]{1520204861279_epi.png}\\
+  \includegraphics[width=\epiWidth\textwidth]{1520204861279_epi_colored.png}
+  \caption{Skysat rectified, row 380. We note some parasite extreme lines. We interpret these as parasite low-confidence slopes.}
+\end{figure}
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\epiWidth\textwidth]{1520205010590_epi.png}\\
+  \includegraphics[width=\epiWidth\textwidth]{1520205010590_epi_colored.png}
+  \caption{Skysat rectified, row 600. Cars do not seem to make a huge difference, but homogeneous zones are not well handled.}
+\end{figure}
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\epiWidth\textwidth]{1520205074004_epi.png}\\
+  \includegraphics[width=\epiWidth\textwidth]{1520205074004_epi_colored.png}
+  \caption{Skysat rectified, row 920. As expected, the algorithm does not work well in the shadows.}
+\end{figure}
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\epiWidth\textwidth]{1520202945623_epi.png}\\
+  \includegraphics[width=\epiWidth\textwidth]{1520202945623_epi_colored.png}
+  \caption{Mansion sample (undersized to $1146\times 720$), row 380.}
+\end{figure}
+
+
 \clearpage
 \bibliographystyle{plain}
 \bibliography{bibliography}

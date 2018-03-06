@@ -41,6 +41,18 @@ float rslf::BandwidthKernel<float>::evaluate(float x) {
 }
 
 template<>
+rslf::Mat rslf::BandwidthKernel<float>::evaluate_mat(Mat m) {
+    Mat res;
+    // (x/h)^2
+    cv::pow(m / m_h_, 2, res);
+    // 1 - (x/h)^2
+    res = 1 - res;
+    // max( 1 - (x/h)^2, 0 ) ; this operation removes nan's
+    cv::max(res, 0.0, res);
+    return res;
+}
+
+template<>
 float rslf::BandwidthKernel<cv::Vec3f>::evaluate(cv::Vec3f x) {
     // If none, return 0
     if (rslf::is_nan_type<cv::Vec3f>(x))
@@ -48,4 +60,22 @@ float rslf::BandwidthKernel<cv::Vec3f>::evaluate(cv::Vec3f x) {
     // Else return 1 - (x/h)^2 if (x/h)^2 < 1, else 0
     float tmp = std::pow(cv::norm(x) / m_h_, 2);
     return (tmp > 1 ? 0 : 1 - tmp);
+}
+
+template<>
+rslf::Mat rslf::BandwidthKernel<cv::Vec3f>::evaluate_mat(Mat m) {
+    Mat res;
+    // (x/h)^2
+    cv::pow(m / m_h_, 2, res);
+    // sum over channels
+    Vec<Mat> channels;
+    cv::split(res, channels);
+    res = channels[0];
+    for (int c=1; c<channels.size(); c++)
+        res += channels[c];
+    // 1 - (x/h)^2
+    res = 1 - res;
+    // max( 1 - (x/h)^2, 0 ) ; this operation removes nan's
+    cv::max(res, 0.0, res);
+    return res;
 }

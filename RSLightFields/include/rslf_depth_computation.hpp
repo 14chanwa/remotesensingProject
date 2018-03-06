@@ -29,7 +29,7 @@ namespace rslf
     
     /*
      * *****************************************************************
-     * INTERPOLATION FUNCTIONS
+     * INTERPOLATION CLASSES
      * *****************************************************************
      */
     
@@ -40,43 +40,39 @@ namespace rslf
     bool is_nan_type(DataType x);
     
     /**
-     * Template generic interpolation function.
-     * 
-     * @param line_matrix A matrix with the values taken at points 0..max_index-1
-     * @param index The (float) index at which to compute the value.
+     * Template generic 1D interpolation class.
      */
     template<typename DataType>
-    using Interpolation1D = DataType (*)
-    (
-        Mat line_matrix, 
-        float index
-    );
-    
+    class Interpolation1DClass
+    {
+        public:
+            virtual DataType interpolate(Mat line_matrix, float index) = 0;
+            virtual Mat interpolate_mat(Mat data_matrix, Mat indices) = 0;
+    };
+
     /**
-     * Template nearest neighbour interpolation function.
-     *
-     * @param line_matrix A matrix with the values taken at points 0..max_index-1
-     * @param index The (float) index at which to compute the value.
+     * Template nearest neighbour interpolation class.
      */ 
     template<typename DataType> 
-    DataType interpolation_1d_nearest_neighbour
-    (
-        Mat line_matrix, 
-        float index
-    );
+    class Interpolation1DNearestNeighbour : public Interpolation1DClass<DataType>
+    {
+        public:
+            Interpolation1DNearestNeighbour() {}
+            DataType interpolate(Mat line_matrix, float index);
+            Mat interpolate_mat(Mat line_matrix, Mat indices);
+    };
     
     /**
-     * Template linear interpolation function.
-     *
-     * @param line_matrix A matrix with the values taken at points 0..max_index-1
-     * @param index The (float) index at which to compute the value.
+     * Template linear interpolation class.
      */ 
     template<typename DataType> 
-    DataType interpolation_1d_linear
-    (
-        Mat line_matrix, 
-        float index
-    );
+    class Interpolation1DLinear : public Interpolation1DClass<DataType>
+    {
+        public:
+            Interpolation1DLinear() {}
+            DataType interpolate(Mat line_matrix, float index);
+            Mat interpolate_mat(Mat data_matrix, Mat indices);
+    };
     
     /*
      * *****************************************************************
@@ -88,15 +84,22 @@ namespace rslf
     class KernelClass
     {
         public:
-            virtual float evaluate(DataType x) {}
+            virtual float evaluate(DataType x) = 0;
+            virtual Mat evaluate_mat(Mat m) = 0;
     };
     
+    /**
+     * This kernel returns value:
+     * 1 - norm(x/h)^2 if norm(x/h) < 1
+     * 0 else
+     */
     template<typename DataType>
     class BandwidthKernel: public KernelClass<DataType>
     {
         public:
             BandwidthKernel(float h): m_h_(h) {}
             float evaluate(DataType x);
+            Mat evaluate_mat(Mat m);
         private:
             float m_h_;
     };
@@ -119,8 +122,9 @@ namespace rslf
             Mat epi, 
             Vec<float> d_list,
             int s_hat = -1, // default s_hat will be s_max / 2
-            Interpolation1D<DataType> interpolation_function = (Interpolation1D<DataType>)interpolation_1d_linear<DataType>,
-            KernelClass<DataType>* kernel_class = 0 
+            Interpolation1DClass<DataType>* interpolation_class = 0,// default is linear interp
+            KernelClass<DataType>* kernel_class = 0, // default will be bandwidth kernel
+            float score_threshold = _SCORE_THRESHOLD
         );
         ~DepthComputer1D();
         
@@ -136,8 +140,8 @@ namespace rslf
         
         Vec<float> m_best_depth_u_;
         Vec<float> m_score_depth_u_;
-
-        Interpolation1D<DataType> m_interpolation_function_;
+        
+        float m_score_threshold_;
         
         /**
          * Line on which to compute the depth
@@ -157,7 +161,9 @@ namespace rslf
          */
         int m_dim_u_;
         
+        Interpolation1DClass<DataType>* m_interpolation_class_;
         KernelClass<DataType>* m_kernel_class_;
+        bool m_delete_interpolation_on_delete_;
         bool m_delete_kernel_on_delete_;
     };
     
@@ -165,10 +171,12 @@ namespace rslf
     /*
      * *****************************************************************
      * IMPLEMENTATION
+     * Interpolation
      * *****************************************************************
      */
+    
     template<typename DataType>
-    DataType interpolation_1d_nearest_neighbour
+    DataType Interpolation1DNearestNeighbour<DataType>::interpolate
     (
         Mat line_matrix, 
         float index
@@ -179,9 +187,36 @@ namespace rslf
             return nan_type<DataType>();
         return line_matrix.at<DataType>(0, rounded_index);
     }
+    
+    template<typename DataType>
+    Mat Interpolation1DNearestNeighbour<DataType>::interpolate_mat
+    (
+        Mat data_matrix, 
+        Mat indices
+    )
+    {
+        // TODO is there a better way to vectorize?
+        assert(indices.rows == data_matrix.rows);
+        Mat res(indices.rows, indices.cols, data_matrix.type(), cv::Scalar(0.0));
+        
+        // Round indices
+        Mat round_indices_matrix;
+        indices.convertTo(round_indices_matrix, CV_32SC1, 1.0, 0.0);
+        // For each row
+        for (int r=0; r<indices.rows; r++) {
+            DataType* data_ptr = data_matrix.ptr<DataType>(r);
+            DataType* res_ptr = res.ptr<DataType>(r);
+            int* ind_ptr = round_indices_matrix.ptr<int>(r);
+            // For each col
+            for (int c=0; c<indices.cols; c++) {
+                res_ptr[c] = (ind_ptr[c] > -1 && ind_ptr[c] < data_matrix.cols ? data_ptr[ind_ptr[c]] : nan_type<DataType>());
+            }
+        }
+        return res;
+    }
 
     template<typename DataType>
-    DataType interpolation_1d_linear
+    DataType Interpolation1DLinear<DataType>::interpolate
     (
         Mat line_matrix, 
         float index
@@ -203,22 +238,54 @@ namespace rslf
     }
     
     template<typename DataType>
+    Mat Interpolation1DLinear<DataType>::interpolate_mat
+    (
+        Mat data_matrix, 
+        Mat indices
+    )
+    {
+        // TODO is there a better way to vectorize?
+        assert(indices.rows == data_matrix.rows);
+        Mat res(indices.rows, indices.cols, data_matrix.type(), cv::Scalar(0.0));
+        
+        // For each row
+        for (int r=0; r<indices.rows; r++) {
+            DataType* data_ptr = data_matrix.ptr<DataType>(r);
+            DataType* res_ptr = res.ptr<DataType>(r);
+            float* ind_ptr = indices.ptr<float>(r);
+            // For each col
+            for (int c=0; c<indices.cols; c++) {
+                int ind_i = (int)std::floor(ind_ptr[c]);
+                int ind_s = (int)std::ceil(ind_ptr[c]);
+                float ind_residue = ind_ptr[c] - ind_i;
+                res_ptr[c] = (ind_i <= 0 || ind_s >= data_matrix.cols - 1 ?
+                    nan_type<DataType>() : (1-ind_residue)*data_ptr[ind_i] + ind_residue*data_ptr[ind_s]);
+            }
+        }
+        return res;
+    }
+    
+    /*
+     * *****************************************************************
+     * IMPLEMENTATION
+     * DepthComputer1D
+     * *****************************************************************
+     */
+    
+    template<typename DataType>
     DepthComputer1D<DataType>::DepthComputer1D
     (
         Mat epi, 
         Vec<float> d_list,
         int s_hat,
-        Interpolation1D<DataType> interpolation_function,
-        KernelClass<DataType>* kernel_class
-    ) 
+        Interpolation1DClass<DataType>* interpolation_class,
+        KernelClass<DataType>* kernel_class,
+        float score_threshold
+    ) : 
+        m_score_threshold_(score_threshold),
+        m_epi_(epi),
+        m_d_list_(d_list)
     {
-        // EPI and d's
-        m_epi_ = epi;
-        m_d_list_ = d_list;
-        
-        // Interpolation function
-        m_interpolation_function_ = interpolation_function;
-        
         // Dimensions
         m_dim_s_ = m_epi_.rows;
         m_dim_d_ = m_d_list_.size();
@@ -239,7 +306,7 @@ namespace rslf
         m_radiances_u_s_d_ = Vec<Mat>(m_dim_u_);
         for (int u=0; u<m_dim_u_; u++)
         {
-            m_radiances_u_s_d_[u] = Mat(m_dim_s_, m_dim_d_, m_epi_.type());
+            m_radiances_u_s_d_[u] = Mat(m_dim_s_, m_dim_d_, m_epi_.type(), cv::Scalar(0.0));
         }
 #ifdef _RSLF_DEPTH_COMPUTATION_DEBUG
         std::cout << "created m_radiances_u_s_d_ of size " << m_radiances_u_s_d_.size() << " x " << m_radiances_u_s_d_.at(0).size << std::endl;
@@ -249,6 +316,18 @@ namespace rslf
         m_scores_u_d_ = Mat(m_dim_u_, m_dim_d_, CV_32FC1);
         m_best_depth_u_ = Vec<float>(m_dim_u_);
         m_score_depth_u_ = Vec<float>(m_dim_u_);
+        
+        // Interpolation
+        if (interpolation_class == 0)
+        {
+            m_interpolation_class_ = new Interpolation1DLinear<DataType>(); // Defaults to linear interpolation
+            m_delete_interpolation_on_delete_ = true;
+        }
+        else
+        {
+            m_interpolation_class_ = interpolation_class;
+            m_delete_interpolation_on_delete_ = false;
+        }
         
         // Kernels
         if (kernel_class == 0)
@@ -267,6 +346,8 @@ namespace rslf
     DepthComputer1D<DataType>::~DepthComputer1D() {
         if (m_delete_kernel_on_delete_)
             delete m_kernel_class_;
+        if (m_delete_interpolation_on_delete_)
+            delete m_interpolation_class_;
     }
 
     template<typename DataType>
@@ -302,7 +383,9 @@ namespace rslf
 #ifdef _RSLF_DEPTH_COMPUTATION_DEBUG
             std::cout << "u=" << u << std::endl;
 #endif
-            
+            /*
+             * Fill radiances
+             */
             // Matrix of indices corresponding to the lines of disparities d
             Mat I = indices + u;
             
@@ -313,29 +396,26 @@ namespace rslf
             std::cout << radiances_s_d.size << std::endl;
 #endif
             
-            /*
-             * Fill radiances
-             */
-            for (int s=0; s<m_dim_s_; s++)
+            // Interpolate
+            radiances_s_d = m_interpolation_class_->interpolate_mat(m_epi_, I);
+            
+            // Indicator of non-nan values
+            Mat non_nan_indicator = radiances_s_d == radiances_s_d;
+
+            // Indicator should be CV_8UC1
+            if (non_nan_indicator.channels() > 1)
             {
-                for (int d=0; d<m_dim_d_; d++)
-                {
-                    radiances_s_d.at<DataType>(s, d) = m_interpolation_function_(m_epi_.row(s), I.at<float>(s, d));
-                }
+                cv::extractChannel(non_nan_indicator, non_nan_indicator, 0);
             }
+
+            non_nan_indicator.convertTo(non_nan_indicator, CV_32FC1, 1.0/255.0);
+            Mat non_nan_invert_indicator = 1.0 - non_nan_indicator;
             
             // Compute number of non-nan radiances per column
-            Vec<float> card_R(m_dim_d_);
-
+            Mat card_R(1, m_dim_d_, CV_32FC1);
             for (int d=0; d<m_dim_d_; d++)
             {
-                for (int s=0; s<m_dim_s_; s++)
-                {
-                    if (!is_nan_type<DataType>(radiances_s_d.at<DataType>(s, d)))
-                    {
-                        card_R[d] += 1.0;
-                    }
-                }
+                card_R.at<float>(0, d) = cv::countNonZero(non_nan_indicator.col(d));
             }
             
             /*
@@ -346,49 +426,73 @@ namespace rslf
             Mat r_bar;
             radiances_s_d.row(m_s_hat_).copyTo(r_bar);
             
-            // Perform a partial mean shift
+            // A col matrix with -1
+            Mat row_m1 = Mat(radiances_s_d.rows, 1, CV_32FC1, cv::Scalar(-1.0));
+            
+            Mat r_m_r_bar;
+            Mat k_r_m_r_bar_mat;
+            Mat r_k_r_m_r_bar_mat;
+            
+            Mat sum_r_K_r_m_r_bar;
+            Mat sum_K_r_m_r_bar;
+            
+            Mat r_bar_broadcast;
+            
+            Mat mask_null_denom;
+
+            // Perform a partial mean shift to cmpute r_bar
             for (int i=0; i<_MEAN_SHIFT_MAX_ITER; i++)
             {
-                for (int d=0; d<m_dim_d_; d++)
+                // r_bar repeated over lines
+                cv::repeat(r_bar, m_dim_s_, 1, r_bar_broadcast); 
+                
+                // r - r_bar
+                cv::subtract(radiances_s_d, r_bar_broadcast, r_m_r_bar);
+                
+                // K(r - r_bar)
+                k_r_m_r_bar_mat = m_kernel_class_->evaluate_mat(r_m_r_bar); // returns 0 if value is nan
+                
+                // r * K(r - r_bar)
+                // Multiply should be of the same number of channels
+                if (radiances_s_d.channels() > 1)
                 {
-                    DataType numerator = 0.0;
-                    float denominator = 0.0;
-                    for (int s=0; s<m_dim_s_; s++)
-                    {
-                        if (!is_nan_type<DataType>(radiances_s_d.at<DataType>(s, d)))
-                        {
-                            // Compute K(r - r_bar)
-                            float kernel_r_m_r_bar = m_kernel_class_->evaluate(radiances_s_d.at<DataType>(s, d) - r_bar.at<DataType>(0, d));
-                            // sum(r * K(r - r_bar))
-                            numerator += radiances_s_d.at<DataType>(s, d) * kernel_r_m_r_bar;
-                            // sum(K(r - r_bar))
-                            denominator += kernel_r_m_r_bar;
-                        }
+                    Vec<Mat> channels;
+                    for (int c=0; c<radiances_s_d.channels(); c++) {
+                        channels.push_back(k_r_m_r_bar_mat);
                     }
-                    if (denominator != 0.0)
-                        r_bar.at<DataType>(0, d) = numerator / denominator;
+                    cv::merge(channels, k_r_m_r_bar_mat);
                 }
+                cv::multiply(radiances_s_d, k_r_m_r_bar_mat, r_k_r_m_r_bar_mat);
+
+                // Sum over lines
+                cv::reduce(r_k_r_m_r_bar_mat, sum_r_K_r_m_r_bar, 0, cv::REDUCE_SUM);
+                cv::reduce(k_r_m_r_bar_mat, sum_K_r_m_r_bar, 0, cv::REDUCE_SUM);
+                
+                // Avoir dividing by zero
+                mask_null_denom = sum_K_r_m_r_bar < 1e-6;
+                Mat mask_null_denom_vec = mask_null_denom.clone();
+                // Indicator should be of type CV_8UC1
+                if (mask_null_denom.channels() > 1)
+                {
+                    cv::extractChannel(mask_null_denom, mask_null_denom, 0);
+                }
+                sum_r_K_r_m_r_bar.setTo(cv::Scalar(0.0), mask_null_denom);
+                sum_K_r_m_r_bar.setTo(cv::Scalar(1.0), mask_null_denom_vec);
+                cv::divide(sum_r_K_r_m_r_bar, sum_K_r_m_r_bar, r_bar);
+
             }
 
             /*
              * Compute scores 
              */
-            for (int d=0; d<m_dim_d_; d++)
-            {
-                if (card_R[d] > 0)//== m_dim_s_)// 
-                {
-                    // m_scores_u_d_
-                    for (int s=0; s<m_dim_s_; s++)
-                    {
-                        m_scores_u_d_.at<float>(u, d) += m_kernel_class_->evaluate(radiances_s_d.at<DataType>(s, d) - r_bar.at<DataType>(0, d));
-                    }
-                    m_scores_u_d_.at<float>(u, d) /= card_R[d];
-                }
-                else
-                {
-                    m_scores_u_d_.at<float>(u, d) = 0.0;
-                }
-            }
+            // Get the last sum { K(r - r_bar) }
+            k_r_m_r_bar_mat = m_kernel_class_->evaluate_mat(r_m_r_bar);
+            cv::reduce(k_r_m_r_bar_mat, sum_K_r_m_r_bar, 0, cv::REDUCE_SUM);
+            cv::divide(sum_K_r_m_r_bar, card_R, sum_K_r_m_r_bar);
+            // Get the position of the zeros of card_R and set corresponding values to 0
+            sum_K_r_m_r_bar.setTo(cv::Scalar(0.0), card_R == 0);
+            // Add the line where nonzero division was performed
+            cv::add(m_scores_u_d_.row(u), sum_K_r_m_r_bar, m_scores_u_d_.row(u));
             
             /*
              * Get best d (max score)
@@ -398,13 +502,13 @@ namespace rslf
             cv::Point minIdx;
             cv::Point maxIdx;
             cv::minMaxLoc(m_scores_u_d_.row(u).clone(), &minVal, &maxVal, &minIdx, &maxIdx);
+
 #ifdef _RSLF_DEPTH_COMPUTATION_DEBUG
             std::cout << maxVal << ", " << maxIdx << std::endl;
 #endif
             
-            // TODO score threshold?
-            // Test : 0.02
-            m_best_depth_u_[u] = (maxVal > _SCORE_THRESHOLD ? m_d_list_.at(maxIdx.x) : 0.0);
+            // Score threshold
+            m_best_depth_u_[u] = (maxVal > m_score_threshold_ ? m_d_list_.at(maxIdx.x) : 0.0);
             m_score_depth_u_[u] = maxVal;
             
         }
@@ -435,11 +539,11 @@ namespace rslf
         Mat occlusion_map(m_dim_s_, m_dim_u_, CV_32FC1, -std::numeric_limits<float>::infinity());
         
         // Build a correspondance depth->color: scale to uchar and map to 3-channel matrix
-        Mat coloured_depth = rslf::copy_and_scale_uchar(Mat(1, m_dim_u_,CV_32FC1, &m_best_depth_u_.front()));
+        Mat coloured_depth = rslf::copy_and_scale_uchar(Mat(1, m_dim_u_, CV_32FC1, &m_best_depth_u_.front()));
         cv::applyColorMap(coloured_depth.clone(), coloured_depth, cv_colormap);
         
         // Construct an EPI with overlay
-        Mat coloured_epi(m_epi_.rows, m_epi_.cols, CV_8UC3);
+        Mat coloured_epi(m_epi_.rows, m_epi_.cols, CV_8UC3, cv::Scalar(0.0));
         
         // For each column of the s_hat row, draw the line, taking overlays into account
         for (int u=0; u<m_dim_u_; u++)

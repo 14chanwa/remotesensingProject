@@ -13,7 +13,7 @@
 
 #define _MEAN_SHIFT_MAX_ITER 10
 #define _MEDIAN_FILTER_SIZE 5
-#define _SCORE_THRESHOLD 0.01
+#define _SCORE_THRESHOLD 0.02
 
 
 namespace rslf
@@ -124,7 +124,8 @@ namespace rslf
             int s_hat = -1, // default s_hat will be s_max / 2
             Interpolation1DClass<DataType>* interpolation_class = 0,// default is linear interp
             KernelClass<DataType>* kernel_class = 0, // default will be bandwidth kernel
-            float score_threshold = _SCORE_THRESHOLD
+            float score_threshold = _SCORE_THRESHOLD,
+            float epi_scale_factor = -1 // default scales from max value
         );
         ~DepthComputer1D();
         
@@ -134,6 +135,8 @@ namespace rslf
     private:
         Mat m_epi_;
         Vec<float> m_d_list_;
+        
+        Mat m_edge_confidence_s_u_;
         
         Vec<Mat> m_radiances_u_s_d_;
         Mat m_scores_u_d_;
@@ -197,7 +200,7 @@ namespace rslf
     {
         // TODO is there a better way to vectorize?
         assert(indices.rows == data_matrix.rows);
-        Mat res(indices.rows, indices.cols, data_matrix.type(), cv::Scalar(0.0));
+        Mat res = cv::Mat::zeros(indices.rows, indices.cols, data_matrix.type());
         
         // Round indices
         Mat round_indices_matrix;
@@ -246,7 +249,7 @@ namespace rslf
     {
         // TODO is there a better way to vectorize?
         assert(indices.rows == data_matrix.rows);
-        Mat res(indices.rows, indices.cols, data_matrix.type(), cv::Scalar(0.0));
+        Mat res = cv::Mat::zeros(indices.rows, indices.cols, data_matrix.type());
         
         // For each row
         for (int r=0; r<indices.rows; r++) {
@@ -280,12 +283,35 @@ namespace rslf
         int s_hat,
         Interpolation1DClass<DataType>* interpolation_class,
         KernelClass<DataType>* kernel_class,
-        float score_threshold
+        float score_threshold,
+        float epi_scale_factor
     ) : 
         m_score_threshold_(score_threshold),
-        m_epi_(epi),
         m_d_list_(d_list)
     {
+        // If the input epi is a uchar, scale uchar to 1.0
+        if (epi.depth() == CV_8U)
+        {
+            epi.convertTo(m_epi_, CV_32F, 1.0/255.0);
+        }
+        else
+        {
+            // If provided scale factor is invalid, scale from max in all channels
+            if (epi_scale_factor < 0)
+            {
+                Vec<Mat> channels;
+                cv::split(epi, channels);
+                for (int c=0; c<channels.size(); c++) 
+                {
+                    double min, max;
+                    cv::minMaxLoc(epi, &min, &max);
+                    epi_scale_factor = std::max((float)max, epi_scale_factor);
+                }
+            }
+            epi.convertTo(m_epi_, CV_32F, 1.0/epi_scale_factor);
+        }
+        
+        
         // Dimensions
         m_dim_s_ = m_epi_.rows;
         m_dim_d_ = m_d_list_.size();
@@ -302,11 +328,14 @@ namespace rslf
             m_s_hat_ = s_hat;
         }
         
+        // Edge confidence
+        m_edge_confidence_s_u_ = cv::Mat::zeros(m_epi_.rows, m_epi_.cols, CV_32FC1);
+        
         // Radiance vector of matrices
         m_radiances_u_s_d_ = Vec<Mat>(m_dim_u_);
         for (int u=0; u<m_dim_u_; u++)
         {
-            m_radiances_u_s_d_[u] = Mat(m_dim_s_, m_dim_d_, m_epi_.type(), cv::Scalar(0.0));
+            m_radiances_u_s_d_[u] = cv::Mat::zeros(m_dim_s_, m_dim_d_, m_epi_.type());
         }
 #ifdef _RSLF_DEPTH_COMPUTATION_DEBUG
         std::cout << "created m_radiances_u_s_d_ of size " << m_radiances_u_s_d_.size() << " x " << m_radiances_u_s_d_.at(0).size << std::endl;
@@ -354,21 +383,57 @@ namespace rslf
     void DepthComputer1D<DataType>::run() 
     {
         /*
+         * Compute edge confidence
+         */
+        int filter_size = 9;
+        int center_index = (filter_size -1) / 2;
+        for (int j=0; j<filter_size; j++)
+        {
+            if (j != center_index)
+            {
+                // Make filter with 1 at 1, 1 and -1 at i, j
+                Mat kernel = cv::Mat::zeros(1, filter_size, CV_32FC1);
+                kernel.at<float>(center_index) = 1.0;
+                kernel.at<float>(j) = -1.0;
+                Mat tmp;
+                cv::filter2D(m_epi_, tmp, -1, kernel, cv::Point(-1,-1), 0, cv::BORDER_CONSTANT);
+                //~ std::cout << tmp << std::endl;
+                //~ assert(false);
+                
+                if (tmp.channels() > 1)
+                {
+                    Vec<Mat> channels;
+                    cv::split(tmp, channels);
+                    for (int c=0; c<channels.size(); c++) 
+                    {
+                        cv::pow(channels[c], 2, channels[c]);
+                        m_edge_confidence_s_u_ += channels[c];
+                    }
+                }
+                else
+                {
+                    cv::pow(tmp, 2, tmp);
+                    m_edge_confidence_s_u_ += tmp;
+                }
+            }
+            
+        }
+        
+        //~ std::cout << m_edge_confidence_s_u_ << std::endl;
+        //~ assert(false);
+        
+        /*
          * Build a matrix with indices corresponding to the lines of slope d and root s_hat
          */
         
         // Row matrix
-        Mat D = Mat(1, m_dim_d_, CV_32FC1);
-        for (int d=0; d<m_dim_d_; d++) 
-        {
-            D.at<float>(0, d) = m_d_list_[d];
-        }
+        Mat D = Mat(1, m_dim_d_, CV_32FC1, &m_d_list_.front());
         
         // Col matrix
         Mat S = Mat(m_dim_s_, 1, CV_32FC1);
         for (int s=0; s<m_dim_s_; s++)
         {
-            S.at<float>(s, 0) = m_s_hat_ - s;
+            S.at<float>(s) = m_s_hat_ - s;
         }
         
         // Index matrix
@@ -407,15 +472,12 @@ namespace rslf
             {
                 cv::extractChannel(non_nan_indicator, non_nan_indicator, 0);
             }
-
-            non_nan_indicator.convertTo(non_nan_indicator, CV_32FC1, 1.0/255.0);
-            Mat non_nan_invert_indicator = 1.0 - non_nan_indicator;
             
             // Compute number of non-nan radiances per column
             Mat card_R(1, m_dim_d_, CV_32FC1);
             for (int d=0; d<m_dim_d_; d++)
             {
-                card_R.at<float>(0, d) = cv::countNonZero(non_nan_indicator.col(d));
+                card_R.at<float>(d) = cv::countNonZero(non_nan_indicator.col(d));
             }
             
             /*
@@ -468,18 +530,11 @@ namespace rslf
                 cv::reduce(r_k_r_m_r_bar_mat, sum_r_K_r_m_r_bar, 0, cv::REDUCE_SUM);
                 cv::reduce(k_r_m_r_bar_mat, sum_K_r_m_r_bar, 0, cv::REDUCE_SUM);
                 
-                // Avoir dividing by zero
-                mask_null_denom = sum_K_r_m_r_bar < 1e-6;
-                Mat mask_null_denom_vec = mask_null_denom.clone();
-                // Indicator should be of type CV_8UC1
-                if (mask_null_denom.channels() > 1)
-                {
-                    cv::extractChannel(mask_null_denom, mask_null_denom, 0);
-                }
-                sum_r_K_r_m_r_bar.setTo(cv::Scalar(0.0), mask_null_denom);
-                sum_K_r_m_r_bar.setTo(cv::Scalar(1.0), mask_null_denom_vec);
+                // Divide
                 cv::divide(sum_r_K_r_m_r_bar, sum_K_r_m_r_bar, r_bar);
-
+                
+                // Set nans to zero
+                cv::max(r_bar, cv::Scalar(0.0), r_bar);
             }
 
             /*
@@ -488,11 +543,15 @@ namespace rslf
             // Get the last sum { K(r - r_bar) }
             k_r_m_r_bar_mat = m_kernel_class_->evaluate_mat(r_m_r_bar);
             cv::reduce(k_r_m_r_bar_mat, sum_K_r_m_r_bar, 0, cv::REDUCE_SUM);
+            
+            // Get score
             cv::divide(sum_K_r_m_r_bar, card_R, sum_K_r_m_r_bar);
-            // Get the position of the zeros of card_R and set corresponding values to 0
-            sum_K_r_m_r_bar.setTo(cv::Scalar(0.0), card_R == 0);
-            // Add the line where nonzero division was performed
-            cv::add(m_scores_u_d_.row(u), sum_K_r_m_r_bar, m_scores_u_d_.row(u));
+            
+            // Set nans to zero
+            cv::max(sum_K_r_m_r_bar, cv::Scalar(0.0), sum_K_r_m_r_bar);
+            
+            // Copy the line to the scores
+            sum_K_r_m_r_bar.copyTo(m_scores_u_d_.row(u));
             
             /*
              * Get best d (max score)
@@ -518,7 +577,7 @@ namespace rslf
          */
         // Convert to Mat in order to apply the builtin OpenCV function
         Mat best_depth_mat(1, m_dim_u_, CV_32FC1, &m_best_depth_u_.front()); 
-        cv::medianBlur(best_depth_mat.clone(), best_depth_mat, _MEDIAN_FILTER_SIZE);
+        cv::medianBlur(best_depth_mat, best_depth_mat, _MEDIAN_FILTER_SIZE);
         // Fill back the Vec
         const float* p = best_depth_mat.ptr<float>(0);
         m_best_depth_u_ = Vec<float>(p, p + m_dim_u_);
@@ -543,7 +602,7 @@ namespace rslf
         cv::applyColorMap(coloured_depth.clone(), coloured_depth, cv_colormap);
         
         // Construct an EPI with overlay
-        Mat coloured_epi(m_epi_.rows, m_epi_.cols, CV_8UC3, cv::Scalar(0.0));
+        Mat coloured_epi = cv::Mat::zeros(m_epi_.rows, m_epi_.cols, CV_8UC3);
         
         // For each column of the s_hat row, draw the line, taking overlays into account
         for (int u=0; u<m_dim_u_; u++)
@@ -559,7 +618,7 @@ namespace rslf
                     occlusion_map.at<float>(s, requested_index) < current_depth_value // only draw if the current depth is higher
                 )
                 {
-                    coloured_epi.at<cv::Vec3b>(s, requested_index) = coloured_depth.at<cv::Vec3b>(0, u);
+                    coloured_epi.at<cv::Vec3b>(s, requested_index) = coloured_depth.at<cv::Vec3b>(u);
                     occlusion_map.at<float>(s, requested_index) = current_depth_value;
                 }
             }

@@ -32,7 +32,6 @@ int main(int argc, char* argv[])
     std::cout << list_mat.size() << " images read" << std::endl;
     
     cv::Mat epi = rslf::build_row_epi_from_imgs(list_mat, inspected_row);
-    //~ epi.convertTo(epi, CV_32FC3);
     
     std::vector<float> d_list;
     float d_min = -2.0;

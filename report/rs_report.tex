@@ -222,6 +222,33 @@ We also created a template code so as to be able to adapt to different data type
 \end{figure}
 
 
+\section{After scaling}
+
+
+In fact, it is better to scale the images between $0.0$ and $1.0$ before processing. We do the following:
+\begin{itemize}
+ \item If the provided image is of type \verb#uchar#, i.e. values are in $0 \cdots 255$, then we scale by $255$.
+ \item Else, we scale by the max over all the channels.
+\end{itemize}
+Results are much cleaner:
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\epiWidth\textwidth]{images/1520334265034_epi.png}\\
+  \includegraphics[width=\epiWidth\textwidth]{images/1520334265034_epi_colored.png}
+  \caption{Skysat rectified, row 380.}
+\end{figure}
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\epiWidth\textwidth]{images/1520334290628_epi.png}\\
+  \includegraphics[width=\epiWidth\textwidth]{images/1520334290628_epi_colored.png}
+  \caption{Mansion sample (undersized to $1146\times 720$), row 380.}
+\end{figure}
+
+
 \clearpage
 \bibliographystyle{plain}
 \bibliography{bibliography}

@@ -5,6 +5,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <string>
 #include <vector>
+#include <rslf_types.hpp>
 
 
 namespace rslf 
@@ -18,10 +19,15 @@ namespace rslf
      * @param row The row along which the EPI will be built.
      * @return The requested EPI.
      */
-    cv::Mat build_row_epi_from_imgs
+    Mat build_row_epi_from_imgs
     (
-        std::vector<cv::Mat> imgs,
+        Vec<Mat> imgs,
         int row
+    );
+    
+    Vec<Mat> build_epis_from_imgs
+    (
+        Vec<Mat> imgs
     );
     
     /**
@@ -35,7 +41,7 @@ namespace rslf
      * @param cv_read_mode The mode with which OpenCV will read the files.
      * @return The requested EPI.
      */
-    cv::Mat build_row_epi_from_path
+    Mat build_row_epi_from_path
     (
         std::string path_to_folder,
         std::string extension,

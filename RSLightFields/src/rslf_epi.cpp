@@ -12,21 +12,21 @@
 //~ #define _RSLF_EPI_DEBUG
 
 
-cv::Mat rslf::build_row_epi_from_imgs
+rslf::Mat rslf::build_row_epi_from_imgs
 (
-    std::vector<cv::Mat> imgs,
+    Vec<Mat> imgs,
     int row
 )
 {
-    cv::Mat img0 = imgs[0];
-    cv::Mat epi
+    Mat img0 = imgs[0];
+    Mat epi
     (
         imgs.size(), // rows
         img0.cols, // cols
         img0.type() // dtype
     );
 #ifdef _RSLF_EPI_DEBUG
-    std::cout << "Created cv::Mat of size (" << imgs.size() << "x" << 
+    std::cout << "Created Mat of size (" << imgs.size() << "x" << 
         img0.cols << "), dtype=" << rslf::type2str(img0.type()) << std::endl;
 #endif
 
@@ -40,7 +40,33 @@ cv::Mat rslf::build_row_epi_from_imgs
     return epi;
 }
 
-cv::Mat rslf::build_row_epi_from_path
+rslf::Vec<rslf::Mat> rslf::build_epis_from_imgs
+(
+    Vec<Mat> imgs
+)
+{
+    Vec<Mat> epis;//(imgs[0].rows, cv::Mat::zeros(imgs.size(), imgs[0].cols, imgs[0].type()));
+    //~ #pragma omp parallel for
+    for (int v=0; v<imgs[0].rows; v++)
+    {   
+        Mat epi(imgs.size(), imgs[0].cols, imgs[0].type());
+        // Builds rows by copy
+        for (int s=0; s<imgs.size(); s++)
+        {
+            imgs[s].row(v).copyTo(epi.row(s));
+        }
+        epis.push_back(epi);
+        
+    }
+    //~ for (int v=0; v<imgs[0].rows; v++)
+    //~ {   
+        //~ std::cout << epis[v].at<float>(0, 0) << std::endl;
+    //~ }
+    
+    return epis;
+}
+
+rslf::Mat rslf::build_row_epi_from_path
 (
     std::string path_to_folder,
     std::string extension,
@@ -49,7 +75,7 @@ cv::Mat rslf::build_row_epi_from_path
 )
 {
     // Get all valid item names in directory
-    std::vector<std::string> list_files;
+    Vec<std::string> list_files;
     for (auto & p : std::experimental::filesystem::directory_iterator(path_to_folder)) 
     {
         std::string file_name = p.path().string();
@@ -65,7 +91,7 @@ cv::Mat rslf::build_row_epi_from_path
     std::sort(list_files.begin(), list_files.end());
     
     // Sample image
-    cv::Mat tmp = read_img_from_file
+    Mat tmp = read_img_from_file
         (
             path_to_folder, 
             list_files[0], 
@@ -74,7 +100,7 @@ cv::Mat rslf::build_row_epi_from_path
         );
     
     // Read items
-    cv::Mat epi
+    Mat epi
     (
         list_files.size(), // rows
         tmp.cols, // cols
@@ -88,7 +114,7 @@ cv::Mat rslf::build_row_epi_from_path
 #ifdef _RSLF_EPI_DEBUG
         std::cout << "Read " << current_name << "." << extension << std::endl;
 #endif
-        cv::Mat img = read_img_from_file(path_to_folder, list_files[i], extension, cv_read_mode);
+        Mat img = read_img_from_file(path_to_folder, list_files[i], extension, cv_read_mode);
         img.row(row).copyTo(epi.row(i));
     }
     

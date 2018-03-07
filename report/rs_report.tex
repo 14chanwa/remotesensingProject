@@ -222,7 +222,7 @@ We also created a template code so as to be able to adapt to different data type
 \end{figure}
 
 
-\section{After scaling}
+\section{After scaling, confidence threshold}
 
 
 In fact, it is better to scale the images between $0.0$ and $1.0$ before processing. We do the following:
@@ -230,14 +230,15 @@ In fact, it is better to scale the images between $0.0$ and $1.0$ before process
  \item If the provided image is of type \verb#uchar#, i.e. values are in $0 \cdots 255$, then we scale by $255$.
  \item Else, we scale by the max over all the channels.
 \end{itemize}
-Results are much cleaner:
+Results are much cleaner (Figures \ref{fig:wscaling:skysat:380}, \ref{fig:wscaling:mansion:380}).
 
 
 \begin{figure}[ht]
   \centering
   \includegraphics[width=\epiWidth\textwidth]{images/1520334265034_epi.png}\\
   \includegraphics[width=\epiWidth\textwidth]{images/1520334265034_epi_colored.png}
-  \caption{Skysat rectified, row 380.}
+  \caption{Skysat rectified, with scaling, row 380.}
+  \label{fig:wscaling:skysat:380}
 \end{figure}
 
 
@@ -245,7 +246,43 @@ Results are much cleaner:
   \centering
   \includegraphics[width=\epiWidth\textwidth]{images/1520334290628_epi.png}\\
   \includegraphics[width=\epiWidth\textwidth]{images/1520334290628_epi_colored.png}
-  \caption{Mansion sample (undersized to $1146\times 720$), row 380.}
+  \caption{Mansion sample, with scaling, (undersized to $1146\times 720$), row 380.}
+  \label{fig:wscaling:mansion:380}
+\end{figure}
+
+
+If we add the confidence measures: confidence edge $C_e$ and final confidence $C_d$ such that:
+\begin{align}
+ C_e (u, \widehat{s}) &= \sum_{u' \in \mathcal{N}(u, \widehat{s})} \norm{E(u, \widehat{s}) - E(u', \widehat{s})}^2 \\
+ C_d (u, \widehat{s}) &= C_e (u, \widehat{s}) \norm{\max_d S(u, d) - \mathrm{mean}_d S(u, d)}
+\end{align}
+we obtain the results presented in Figures \ref{fig:wconf:skysat:380}, \ref{fig:wconf:mansion:380}. We disable the median filter along d's for these tests.
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\epiWidth\textwidth]{images/1520354672022_epi.png}\\
+  \includegraphics[width=\epiWidth\textwidth]{images/1520354672022_epi_colored.png}
+  \caption{Skysat rectified, with scaling and score threshold, no median filter, row 380.}
+  \label{fig:wconf:skysat:380}
+\end{figure}
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\epiWidth\textwidth]{images/1520354635991_epi.png}\\
+  \includegraphics[width=\epiWidth\textwidth]{images/1520354635991_epi_colored.png}
+  \caption{Mansion sample, with scaling and score threshold, no median filter, (undersized to $1146\times 720$), row 380.}
+  \label{fig:wconf:mansion:380}
+\end{figure}
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.35\textwidth]{images/1520423162502_dmap.png}
+  \includegraphics[width=0.7\textwidth]{images/1520438877175_dmap.png}
+  \caption{Sample outputs depth maps where $C_e > 0.02$ (mansion [626 seconds] and Skysat [51 seconds] with 120 tested $d$ values between $-2.0$ and $4.0$, no median filter)}
+  \label{fig:wconf:piles}
 \end{figure}
 
 

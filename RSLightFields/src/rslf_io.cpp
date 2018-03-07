@@ -6,7 +6,7 @@
 #include <vector>
 
 
-//~ #define _RSLF_IO_VERBOSE
+#define _RSLF_IO_VERBOSE
 //~ #define _RSLF_IO_DEBUG
 
 

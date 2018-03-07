@@ -16,6 +16,9 @@ int read_mansion_image(int inspected_row);
 
 int main(int argc, char* argv[])
 {
+    
+    std::cout << "Started depth computation..." << std::endl;
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 
     // Select row
     int inspected_row = 380;
@@ -31,7 +34,11 @@ int main(int argc, char* argv[])
     
     std::cout << list_mat.size() << " images read" << std::endl;
     
-    cv::Mat epi = rslf::build_row_epi_from_imgs(list_mat, inspected_row);
+    std::vector<cv::Mat> epis = rslf::build_epis_from_imgs(list_mat);
+    
+    //~ rslf::plot_mat(epis[0], "EPI 0");
+    //~ rslf::plot_mat(epis[500], "EPI 500");
+    //~ cv::waitKey();
     
     std::vector<float> d_list;
     float d_min = -2.0;
@@ -42,15 +49,18 @@ int main(int argc, char* argv[])
     
     std::cout << d_list.size() << " d values requested" << std::endl;
     
-    rslf::Depth1DParameters<float>& parameters = rslf::Depth1DParameters<float>::get_default();
-    
-    //~ rslf::DepthComputer1D<cv::Vec3f> depth_computer_1d(epi, d_list);
-    rslf::Depth1DComputer<float> depth_computer_1d(epi, d_list);
+    rslf::Depth1DComputer_pile<float> depth_computer_1d(epis, d_list);
+    //~ rslf::Depth1DComputer_pile<cv::Vec3f> depth_computer_1d(epis, d_list);
     depth_computer_1d.run();
+    
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>( t2 - t1 ).count();
+    std::cout << "Time elapsed: " << duration << " seconds" << std::endl;
     
     std::cout << "Plotting" << std::endl;
     
     cv::Mat coloured_epi = depth_computer_1d.get_coloured_epi();
+    cv::Mat disparity_map = depth_computer_1d.get_disparity_map();
     
     // Save imgs 
     // Base name
@@ -63,9 +73,9 @@ int main(int argc, char* argv[])
     
     rslf::write_mat_to_imgfile
     (
-        epi,
+        disparity_map,
         "../output/", 
-        base_filename + "_epi",
+        base_filename + "_dmap",
         "png"
     );
     rslf::write_mat_to_imgfile
@@ -76,7 +86,7 @@ int main(int argc, char* argv[])
         "png"
     );
     
-    rslf::plot_mat(epi, "EPI");
+    rslf::plot_mat(disparity_map, "Disparity map");
     rslf::plot_mat(coloured_epi, "EPI + depth");
     
     cv::waitKey();

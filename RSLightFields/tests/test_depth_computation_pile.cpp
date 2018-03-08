@@ -49,7 +49,7 @@ int main(int argc, char* argv[])
     
     std::cout << d_list.size() << " d values requested" << std::endl;
     
-    rslf::Depth1DComputer_pile<float> depth_computer_1d(epis, d_list, true);
+    rslf::Depth1DComputer_pile<float> depth_computer_1d(epis, d_list);
     //~ rslf::Depth1DComputer_pile<cv::Vec3f> depth_computer_1d(epis, d_list);
     depth_computer_1d.run();
     

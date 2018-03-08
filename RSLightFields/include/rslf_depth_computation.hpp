@@ -348,8 +348,8 @@ namespace rslf
         Mat& m_best_depth_u_,
         Mat& m_score_depth_u_,
         const Depth1DParameters<DataType>& m_parameters_,
-        BufferDepth1D_GPU& m_buffer_,
-        GStream& m_stream_
+        Vec<BufferDepth1D_GPU*>& buffers,
+        Vec<GStream*>& streams
     );
 
     
@@ -647,7 +647,7 @@ namespace rslf
         // If provided scale factor is invalid, scale from max in all channels
         if (epis[0].depth() != CV_8U && epi_scale_factor < 0)
         {
-#pragma omp parallel for
+//~ #pragma omp parallel for
             for (int v=0; v<epis.size(); v++)
             {
                 Mat epi = epis[v];
@@ -657,16 +657,16 @@ namespace rslf
                 {
                     double min, max;
                     cv::minMaxLoc(epi, &min, &max);
-#pragma omp critical
-{
+//~ #pragma omp critical
+//~ {
                     epi_scale_factor = std::max((float)max, epi_scale_factor);
-}
+//~ }
                 }
             }
         }
         
         // If the input epi is a uchar, scale uchar to 1.0
-#pragma omp parallel for
+//~ #pragma omp parallel for
         for (int v=0; v<epis.size(); v++) 
         {
             Mat epi = epis[v];
@@ -707,7 +707,7 @@ namespace rslf
         
         // Scores and best scores & depths
         m_scores_v_u_d_ = Vec<Mat>(m_dim_v_, Mat(m_dim_u_, m_dim_d_, CV_32FC1));
-#pragma omp parallel for
+//~ #pragma omp parallel for
         for (int v=0; v<m_dim_v_; v++)
         {
             m_scores_v_u_d_[v] = Mat(m_dim_u_, m_dim_d_, CV_32FC1, cv::Scalar(0.0));
@@ -724,6 +724,7 @@ namespace rslf
         int m_dim_s_ = m_epis_[0].rows;
         int m_dim_d_ = m_d_list_.size();
         int m_dim_v_ = m_epis_.size();
+        int m_dim_u_ = m_epis_[0].cols;
         
         /*
          * Build a matrix with indices corresponding to the lines of slope d and root s_hat
@@ -746,6 +747,7 @@ namespace rslf
         // Buffers
         if (cv::cuda::getCudaEnabledDeviceCount() == 0 || !m_use_gpu_)
         {
+            
             int thr_max = omp_get_max_threads();
             std::cout << "Max num of threads: " << thr_max << std::endl;
             
@@ -793,22 +795,16 @@ namespace rslf
             int thr_max = omp_get_max_threads();
             std::cout << "Max num of threads: " << thr_max << std::endl;
             
-            Mat col_1 = Mat(m_dim_s_, 1, CV_32FC1, cv::Scalar(1.0));
-            Vec<Mat> col_1_concat(m_epis_[0].channels(), col_1);
-            cv::merge(col_1_concat, col_1);
-            std::cout << "col_1: " << col_1.size << ", " << rslf::type2str(col_1.type()) << std::endl;
-            
             Vec<BufferDepth1D_GPU*> buffer;
             Vec<GStream*> streams;
             for (int t=0; t<thr_max; t++)
             {
                 buffer.push_back(new BufferDepth1D_GPU());
                 streams.push_back(new GStream());
-                buffer[t]->g_col_1.upload(col_1, *streams[t]);
             }
             
             
-#pragma omp parallel for
+//~ #pragma omp parallel for
             for (int v=0; v<m_dim_v_; v++)
             {
                 // Create views
@@ -830,8 +826,8 @@ namespace rslf
                     m_best_depth_u_,
                     m_score_depth_u_,
                     m_parameters_,
-                    *buffer[omp_get_thread_num()],
-                    *streams[omp_get_thread_num()]
+                    buffer,
+                    streams
                 );
                 
             }
@@ -1155,8 +1151,8 @@ namespace rslf
         Mat& m_best_depth_u_,
         Mat& m_score_depth_u_,
         const Depth1DParameters<DataType>& m_parameters_,
-        BufferDepth1D_GPU& m_buffer_,
-        GStream& m_stream_
+        Vec<BufferDepth1D_GPU*>& buffers,
+        Vec<GStream*>& streams
     ) 
     {
         
@@ -1205,10 +1201,20 @@ namespace rslf
         /*
          * Iterate over all columns of the EPI
          */
+        Vec<GMat> g_scores_u_d_(m_dim_u_);
         
-//~ #pragma omp parallel for
+        Mat col_1 = Mat(m_dim_s_, 1, CV_32FC1, cv::Scalar(1.0));
+        Vec<Mat> col_1_concat(m_epi_.channels(), col_1);
+        cv::merge(col_1_concat, col_1);
+        
+#pragma omp parallel for
         for (int u=0; u<m_dim_u_; u++)
         {
+            BufferDepth1D_GPU m_buffer_ = *buffers[omp_get_thread_num()];
+            GStream m_stream_ = *streams[omp_get_thread_num()];
+            g_scores_u_d_[u].upload(m_scores_u_d_.row(u), m_stream_);
+            GMat g_col_1 = m_buffer_.g_col_1;
+            g_col_1.upload(col_1, m_stream_);
             
             // Do not compute low-confidence values
             if (m_edge_confidence_u_.at<float>(u) < m_parameters_.m_score_threshold_)
@@ -1280,7 +1286,7 @@ namespace rslf
             if (radiances_s_d.channels() > 1 && g_r_bar_broadcast_non_continuous.empty())
                 g_r_bar_broadcast_non_continuous.upload(Mat(m_dim_s_, m_dim_d_, CV_32FC3), m_stream_);
             
-            GMat g_col_1 = m_buffer_.g_col_1;
+            //~ GMat g_col_1 = m_buffer_.g_col_1;
             
             GMat g_dummy;
             
@@ -1355,7 +1361,7 @@ namespace rslf
                 // Set nans to zero
                 cv::cuda::max(g_r_bar, cv::Scalar(0.0), g_r_bar, m_stream_);
             }
-
+            
             /*
              * Compute scores 
              */
@@ -1369,10 +1375,42 @@ namespace rslf
             cv::cuda::max(g_sum_K_r_m_r_bar, cv::Scalar(0.0), g_sum_K_r_m_r_bar, m_stream_);
             
             // Copy the line to the scores
-            g_sum_K_r_m_r_bar.download(m_scores_u_d_.row(u), m_stream_);
+            g_sum_K_r_m_r_bar.copyTo(g_scores_u_d_[u], m_stream_);
+            //~ std::cout << "u=" << u << "ok" << std::endl;
+ 
+        }
+        
+        //~ m_stream_.waitForCompletion();
+        
+        //~ GMat g_scores_u_d_concat = m_buffer_.g_scores_u_d_concat;
+        //~ Mat m_scores_u_d_concat_local = m_buffer_.m_scores_u_d_concat_local;
+        
+        
+        for (int u=0; u<m_dim_u_; u++)
+        {
             
-            m_stream_.waitForCompletion();
-            
+            if (m_edge_confidence_u_.at<float>(u) < m_parameters_.m_score_threshold_)
+                continue;
+            //~ Mat a;
+            //~ std::cout << "g_scores_u_d_[u] " << g_scores_u_d_[u].size() << ", " << rslf::type2str(g_scores_u_d_[u].type()) << std::endl;
+            //~ std::cout << "m_scores_u_d_.row(u) " << m_scores_u_d_.row(u).size << ", " << rslf::type2str(m_scores_u_d_.row(u).type()) << std::endl;
+        
+            g_scores_u_d_[u].download(m_scores_u_d_.row(u));
+            //~ std::cout << "lala" << std::endl;
+            //~ a.copyTo();
+        }
+        //~ cv::cuda::merge(g_scores_u_d_, g_scores_u_d_concat);
+        //~ g_scores_u_d_concat.download(m_scores_u_d_concat_local);
+        //~ m_scores_u_d_concat_local = m_scores_u_d_concat_local.reshape(1, m_dim_d_);
+        
+        //~ m_scores_u_d_concat_local.copyTo(m_scores_u_d_);
+        //~ std::cout << "stub" << std::endl;
+        
+        
+        for (int u=0; u<m_dim_u_; u++)
+        {
+            if (m_edge_confidence_u_.at<float>(u) < m_parameters_.m_score_threshold_)
+                continue;
             /*
              * Get best d (max score)
              */
@@ -1387,9 +1425,8 @@ namespace rslf
             
             // Compute depth confidence score
             m_disp_confidence_u_.at<float>(u) = m_edge_confidence_u_.at<float>(u) * std::abs(m_score_depth_u_.at<float>(u) - cv::mean(m_scores_u_d_.row(u))[0]);
- 
         }
-        
+        std::cout << "stub2" << std::endl;
     }
 
 }

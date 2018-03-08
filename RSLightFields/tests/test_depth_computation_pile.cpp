@@ -29,8 +29,8 @@ int main(int argc, char* argv[])
     }
     
     // Load all images in folder
-    std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/skysat_lasvegas_rectified/rectified_equalized_resized_frames_step18/", "tif", CV_LOAD_IMAGE_UNCHANGED);
-    //~ std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/mansion_image_resized/", "jpg", CV_LOAD_IMAGE_UNCHANGED);
+    //~ std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/skysat_lasvegas_rectified/rectified_equalized_resized_frames_step18/", "tif", CV_LOAD_IMAGE_UNCHANGED);
+    std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/mansion_image_resized/", "jpg", CV_LOAD_IMAGE_UNCHANGED);
     
     std::cout << list_mat.size() << " images read" << std::endl;
     
@@ -49,8 +49,8 @@ int main(int argc, char* argv[])
     
     std::cout << d_list.size() << " d values requested" << std::endl;
     
-    rslf::Depth1DComputer_pile<float> depth_computer_1d(epis, d_list);
-    //~ rslf::Depth1DComputer_pile<cv::Vec3f> depth_computer_1d(epis, d_list);
+    //~ rslf::Depth1DComputer_pile<float> depth_computer_1d(epis, d_list);
+    rslf::Depth1DComputer_pile<cv::Vec3f> depth_computer_1d(epis, d_list);
     depth_computer_1d.run();
     
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();

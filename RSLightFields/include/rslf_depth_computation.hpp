@@ -5,9 +5,13 @@
 #include <vector>
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+
 #include <rslf_types.hpp>
 #include <rslf_plot.hpp>
 #include <rslf_utils.hpp>
+
+#include <omp.h>
+#include <chrono>
 
 
 //~ #define _RSLF_DEPTH_COMPUTATION_DEBUG
@@ -16,6 +20,7 @@
 #define _EDGE_CONFIDENCE_FILTER_SIZE 9
 #define _MEDIAN_FILTER_SIZE 5
 #define _SCORE_THRESHOLD 0.02
+
 
 
 // Useful links
@@ -47,8 +52,8 @@ namespace rslf
     class Interpolation1DClass
     {
         public:
-            virtual DataType interpolate(Mat line_matrix, float index) = 0;
-            virtual Mat interpolate_mat(Mat data_matrix, Mat indices) = 0;
+            virtual DataType interpolate(const Mat& line_matrix, float index) = 0;
+            virtual void interpolate_mat(const Mat& data_matrix, const Mat& indices, Mat& res) = 0;
     };
 
     /**
@@ -59,8 +64,8 @@ namespace rslf
     {
         public:
             Interpolation1DNearestNeighbour() {}
-            DataType interpolate(Mat line_matrix, float index);
-            Mat interpolate_mat(Mat line_matrix, Mat indices);
+            DataType interpolate(const Mat& line_matrix, float index);
+            void interpolate_mat(const Mat& data_matrix, const Mat& indices, Mat& res);
     };
     
     /**
@@ -71,8 +76,8 @@ namespace rslf
     {
         public:
             Interpolation1DLinear() {}
-            DataType interpolate(Mat line_matrix, float index);
-            Mat interpolate_mat(Mat data_matrix, Mat indices);
+            DataType interpolate(const Mat& line_matrix, float index);
+            void interpolate_mat(const Mat& data_matrix, const Mat& indices, Mat& res);
     };
     
     /*
@@ -86,7 +91,7 @@ namespace rslf
     {
         public:
             virtual float evaluate(DataType x) = 0;
-            virtual Mat evaluate_mat(Mat m) = 0;
+            virtual void evaluate_mat(const Mat& src, Mat& dst) = 0;
     };
     
     /**
@@ -98,11 +103,13 @@ namespace rslf
     class BandwidthKernel: public KernelClass<DataType>
     {
         public:
-            BandwidthKernel(float h): m_h_(h) {}
+            BandwidthKernel(float h): m_h_(h) { inv_m_h_sq = 1.0 / (m_h_ * m_h_); }
             float evaluate(DataType x);
-            Mat evaluate_mat(Mat m);
+            void evaluate_mat(const Mat& src, Mat& dst);
+
         private:
             float m_h_;
+            float inv_m_h_sq;
     };
     
     /*
@@ -244,18 +251,35 @@ namespace rslf
      * *****************************************************************
      */
     
+    struct BufferDepth1D {
+        Mat I;
+        Mat radiances_s_d;
+        Mat card_R;
+        Mat r_bar;
+        Mat r_m_r_bar;
+        Mat K_r_m_r_bar_mat;
+        Mat K_r_m_r_bar_mat_vec;
+        Mat r_K_r_m_r_bar_mat;
+        Mat sum_r_K_r_m_r_bar;
+        Mat sum_K_r_m_r_bar;
+        Mat sum_K_r_m_r_bar_vec;
+        Mat r_bar_broadcast;
+    };
+    
     template<typename DataType>
     void compute_1D_depth_epi(
         const Mat& m_epi_,
-        const Vec<float>& m_d_list_,
+        const Vec<float> m_d_list_,
+        const Mat& m_indices_,
         int m_s_hat_,
         Mat& m_edge_confidence_u_,
         Mat& m_disp_confidence_u_,
         Mat& m_scores_u_d_,
         Mat& m_best_depth_u_,
         Mat& m_score_depth_u_,
-        const Depth1DParameters<DataType>& m_parameters_
-    );
+        const Depth1DParameters<DataType>& m_parameters_,
+        BufferDepth1D& m_buffer_
+);
     
     
 
@@ -276,7 +300,7 @@ namespace rslf
     template<typename DataType>
     DataType Interpolation1DNearestNeighbour<DataType>::interpolate
     (
-        Mat line_matrix, 
+        const Mat& line_matrix, 
         float index
     )
     {
@@ -287,22 +311,24 @@ namespace rslf
     }
     
     template<typename DataType>
-    Mat Interpolation1DNearestNeighbour<DataType>::interpolate_mat
+    void Interpolation1DNearestNeighbour<DataType>::interpolate_mat
     (
-        Mat data_matrix, 
-        Mat indices
+        const Mat& data_matrix, 
+        const Mat& indices,
+        Mat& res
     )
     {
         // TODO is there a better way to vectorize?
         assert(indices.rows == data_matrix.rows);
-        Mat res = cv::Mat::zeros(indices.rows, indices.cols, data_matrix.type());
+        if (res.empty() || res.size != data_matrix.size || res.type() != data_matrix.type())
+            res = cv::Mat::zeros(indices.rows, indices.cols, data_matrix.type());
         
         // Round indices
         Mat round_indices_matrix;
         indices.convertTo(round_indices_matrix, CV_32SC1, 1.0, 0.0);
         // For each row
         for (int r=0; r<indices.rows; r++) {
-            DataType* data_ptr = data_matrix.ptr<DataType>(r);
+            const DataType* data_ptr = data_matrix.ptr<DataType>(r);
             DataType* res_ptr = res.ptr<DataType>(r);
             int* ind_ptr = round_indices_matrix.ptr<int>(r);
             // For each col
@@ -310,13 +336,12 @@ namespace rslf
                 res_ptr[c] = (ind_ptr[c] > -1 && ind_ptr[c] < data_matrix.cols ? data_ptr[ind_ptr[c]] : nan_type<DataType>());
             }
         }
-        return res;
     }
 
     template<typename DataType>
     DataType Interpolation1DLinear<DataType>::interpolate
     (
-        Mat line_matrix, 
+        const Mat& line_matrix, 
         float index
     )
     {
@@ -336,21 +361,23 @@ namespace rslf
     }
     
     template<typename DataType>
-    Mat Interpolation1DLinear<DataType>::interpolate_mat
+    void Interpolation1DLinear<DataType>::interpolate_mat
     (
-        Mat data_matrix, 
-        Mat indices
+        const Mat& data_matrix, 
+        const Mat& indices,
+        Mat& res
     )
     {
         // TODO is there a better way to vectorize?
         assert(indices.rows == data_matrix.rows);
-        Mat res = cv::Mat::zeros(indices.rows, indices.cols, data_matrix.type());
+        if (res.empty() || res.size != data_matrix.size || res.type() != data_matrix.type())
+            res = cv::Mat::zeros(indices.rows, indices.cols, data_matrix.type());
         
         // For each row
         for (int r=0; r<indices.rows; r++) {
-            DataType* data_ptr = data_matrix.ptr<DataType>(r);
+            const DataType* data_ptr = data_matrix.ptr<DataType>(r);
             DataType* res_ptr = res.ptr<DataType>(r);
-            float* ind_ptr = indices.ptr<float>(r);
+            const float* ind_ptr = indices.ptr<float>(r);
             // For each col
             for (int c=0; c<indices.cols; c++) {
                 int ind_i = (int)std::floor(ind_ptr[c]);
@@ -360,7 +387,6 @@ namespace rslf
                     nan_type<DataType>() : (1-ind_residue)*data_ptr[ind_i] + ind_residue*data_ptr[ind_s]);
             }
         }
-        return res;
     }
     
     /*
@@ -437,16 +463,46 @@ namespace rslf
     template<typename DataType>
     void Depth1DComputer<DataType>::run() 
     {
+        // Dimension
+        int m_dim_s_ = m_epi_.rows;
+        int m_dim_d_ = m_d_list_.size();
+        
+        std::cout << "Max num of threads: " << omp_get_max_threads() << std::endl;
+        //~ omp_set_nested(1);
+        
+        /*
+         * Build a matrix with indices corresponding to the lines of slope d and root s_hat
+         */
+        
+        // Row matrix
+        Vec<float> m_d_list_copy = m_d_list_;
+        Mat D = Mat(1, m_dim_d_, CV_32FC1, &m_d_list_copy.front());
+        
+        // Col matrix
+        Mat S = Mat(m_dim_s_, 1, CV_32FC1);
+        for (int s=0; s<m_dim_s_; s++)
+        {
+            S.at<float>(s) = m_s_hat_ - s;
+        }
+        
+        // Index matrix
+        Mat indices = S * D;
+        
+        // Buffer
+        BufferDepth1D buffer;
+        
         compute_1D_depth_epi(
             m_epi_,
             m_d_list_,
+            indices,
             m_s_hat_,
             m_edge_confidence_u_,
             m_disp_confidence_u_,
             m_scores_u_d_,
             m_best_depth_u_,
             m_score_depth_u_,
-            m_parameters_
+            m_parameters_,
+            buffer
         );
     }
     
@@ -594,7 +650,40 @@ namespace rslf
     {
         
         // Dimension
+        int m_dim_s_ = m_epis_[0].rows;
+        int m_dim_d_ = m_d_list_.size();
         int m_dim_v_ = m_epis_.size();
+        int m_dim_u_ = m_epis_[0].cols;
+        
+        /*
+         * Build a matrix with indices corresponding to the lines of slope d and root s_hat
+         */
+        
+        // Row matrix
+        Vec<float> m_d_list_copy = m_d_list_;
+        Mat D = Mat(1, m_dim_d_, CV_32FC1, &m_d_list_copy.front());
+        
+        // Col matrix
+        Mat S = Mat(m_dim_s_, 1, CV_32FC1);
+        for (int s=0; s<m_dim_s_; s++)
+        {
+            S.at<float>(s) = m_s_hat_ - s;
+        }
+        
+        // Index matrix
+        Mat indices = S * D;
+    
+        int thr_max = omp_get_max_threads();
+        std::cout << "Max num of threads: " << thr_max << std::endl;
+        
+        Vec<BufferDepth1D*> buffer;
+        for (int t=0; t<thr_max; t++)
+            buffer.push_back(new BufferDepth1D());
+        
+        // For progress bar
+        float progress = 0.0;
+        int barWidth = 70;
+        std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
         
 #pragma omp parallel for
         for (int v=0; v<m_dim_v_; v++)
@@ -610,16 +699,40 @@ namespace rslf
             compute_1D_depth_epi(
                 m_epi_,
                 m_d_list_,
+                indices,
                 m_s_hat_,
                 m_edge_confidence_u_,
                 m_disp_confidence_u_,
                 m_scores_u_d_,
                 m_best_depth_u_,
                 m_score_depth_u_,
-                m_parameters_
+                m_parameters_,
+                *buffer[omp_get_thread_num()]
             );
             
-       }
+#pragma omp critical
+{
+            // Display progress bar
+            std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+            std::cout << "[";
+            int pos = barWidth * progress / m_dim_v_;
+            for (int i = 0; i < barWidth; ++i) {
+                if (i < pos) std::cout << "=";
+                else if (i == pos) std::cout << ">";
+                else std::cout << " ";
+            }
+            std::cout << "] " << int(progress * 100.0 / m_dim_v_) << "% \t" << std::chrono::duration_cast<std::chrono::seconds>( t2 - t1 ).count() << "s \r";
+            std::cout.flush();
+}
+#pragma omp atomic
+           progress += 1.0;
+            
+        }
+    
+        std::cout << std::endl;
+        
+        for (int t=0; t<thr_max; t++)
+            delete buffer[t];
         
     }
     
@@ -718,14 +831,16 @@ namespace rslf
     template<typename DataType>
     void compute_1D_depth_epi(
         const Mat& m_epi_,
-        const Vec<float>& m_d_list_,
+        const Vec<float> m_d_list_,
+        const Mat& m_indices_,
         int m_s_hat_,
         Mat& m_edge_confidence_u_,
         Mat& m_disp_confidence_u_,
         Mat& m_scores_u_d_,
         Mat& m_best_depth_u_,
         Mat& m_score_depth_u_,
-        const Depth1DParameters<DataType>& m_parameters_
+        const Depth1DParameters<DataType>& m_parameters_,
+        BufferDepth1D& m_buffer_
     ) 
     {
         
@@ -739,17 +854,19 @@ namespace rslf
          */
         int filter_size = m_parameters_.m_edge_confidence_filter_size_;
         int center_index = (filter_size -1) / 2;
-#pragma omp parallel for
+
+
+        Mat kernel = cv::Mat::zeros(1, filter_size, CV_32FC1);
+        Mat tmp;
         for (int j=0; j<filter_size; j++)
         {
             if (j == center_index)
                 continue;
             
             // Make filter with 1 at 1, 1 and -1 at i, j
-            Mat kernel = cv::Mat::zeros(1, filter_size, CV_32FC1);
+            kernel.setTo(0.0);
             kernel.at<float>(center_index) = 1.0;
             kernel.at<float>(j) = -1.0;
-            Mat tmp;
             cv::filter2D(m_epi_.row(m_s_hat_), tmp, -1, kernel, cv::Point(-1,-1), 0, cv::BORDER_CONSTANT);
             
             if (tmp.channels() > 1)
@@ -759,44 +876,21 @@ namespace rslf
                 for (int c=0; c<channels.size(); c++) 
                 {
                     cv::pow(channels[c], 2, channels[c]);
-#pragma omp critical
-{
                     m_edge_confidence_u_ += channels[c];
-}
                 }
             }
             else
             {
                 cv::pow(tmp, 2, tmp);
-#pragma omp critical
-{
                 m_edge_confidence_u_ += tmp;
-}
             }
         }
         
         /*
-         * Build a matrix with indices corresponding to the lines of slope d and root s_hat
-         */
-        
-        // Row matrix
-        Vec<float> m_d_list_copy = m_d_list_;
-        Mat D = Mat(1, m_dim_d_, CV_32FC1, &m_d_list_copy.front());
-        
-        // Col matrix
-        Mat S = Mat(m_dim_s_, 1, CV_32FC1);
-        for (int s=0; s<m_dim_s_; s++)
-        {
-            S.at<float>(s) = m_s_hat_ - s;
-        }
-        
-        // Index matrix
-        Mat indices = S * D;
-        
-        /*
          * Iterate over all columns of the EPI
          */
-#pragma omp parallel for
+        
+//~ #pragma omp parallel for
         for (int u=0; u<m_dim_u_; u++)
         {
             
@@ -808,23 +902,26 @@ namespace rslf
              * Fill radiances
              */
             // Matrix of indices corresponding to the lines of disparities d
-            Mat I = indices + u;
+            Mat I = m_buffer_.I;
+            cv::add(m_indices_, u, I);
             
             // Create new radiance view
-            Mat radiances_s_d = m_parameters_.m_interpolation_class_->interpolate_mat(m_epi_, I);
+            Mat radiances_s_d = m_buffer_.radiances_s_d;
+            
+            // Interpolate
+            // TODO this step is costly
+            m_parameters_.m_interpolation_class_->interpolate_mat(m_epi_, I, radiances_s_d);
             
             // Indicator of non-nan values
-            Mat non_nan_indicator = radiances_s_d == radiances_s_d;
-
-            // Indicator should be CV_8UC1
-            if (non_nan_indicator.channels() > 1)
-            {
-                cv::extractChannel(non_nan_indicator, non_nan_indicator, 0);
-            }
+            Vec<Mat> radiances_split;
+            cv::split(radiances_s_d, radiances_split);
+            Mat non_nan_indicator = radiances_split[0] == radiances_split[0];
             
             // Compute number of non-nan radiances per column
-            Mat card_R(1, m_dim_d_, CV_32FC1);
-#pragma omp parallel for
+            Mat card_R = m_buffer_.card_R;
+            if (card_R.empty())
+                card_R = Mat(1, m_dim_d_, CV_32FC1);
+
             for (int d=0; d<m_dim_d_; d++)
             {
                 card_R.at<float>(d) = cv::countNonZero(non_nan_indicator.col(d));
@@ -833,53 +930,65 @@ namespace rslf
             /*
              * Compute r_bar iteratively
              */
+            Mat r_bar = m_buffer_.r_bar;
+            
+            Mat r_m_r_bar = m_buffer_.r_m_r_bar;
+            Mat K_r_m_r_bar_mat = m_buffer_.K_r_m_r_bar_mat;
+            Mat K_r_m_r_bar_mat_vec = m_buffer_.K_r_m_r_bar_mat_vec;
+            
+            Mat r_K_r_m_r_bar_mat = m_buffer_.r_K_r_m_r_bar_mat;
+            
+            Mat sum_r_K_r_m_r_bar = m_buffer_.sum_r_K_r_m_r_bar;
+            
+            Mat sum_K_r_m_r_bar = m_buffer_.sum_K_r_m_r_bar;
+            Mat sum_K_r_m_r_bar_vec = m_buffer_.sum_K_r_m_r_bar_vec;
+            
+            Mat r_bar_broadcast = m_buffer_.r_bar_broadcast;
             
             // Initialize r_bar to the values in s_hat
-            Mat r_bar;
             radiances_s_d.row(m_s_hat_).copyTo(r_bar);
-            
-            // A col matrix with -1
-            Mat row_m1 = Mat(radiances_s_d.rows, 1, CV_32FC1, cv::Scalar(-1.0));
-            
-            Mat r_m_r_bar;
-            Mat k_r_m_r_bar_mat;
-            Mat r_k_r_m_r_bar_mat;
-            
-            Mat sum_r_K_r_m_r_bar;
-            Mat sum_K_r_m_r_bar;
-            
-            Mat r_bar_broadcast;
-            
-            Mat mask_null_denom;
 
-            // Perform a partial mean shift to cmpute r_bar
+            // Perform a partial mean shift to compute r_bar
             // TODO: This step is costly
             for (int i=0; i< m_parameters_.m_mean_shift_max_iter_; i++)
             {
-                // r_bar repeated over lines
+                // r_bar repeated over lines 
                 cv::repeat(r_bar, m_dim_s_, 1, r_bar_broadcast); 
                 
                 // r - r_bar
                 cv::subtract(radiances_s_d, r_bar_broadcast, r_m_r_bar);
                 
                 // K(r - r_bar)
-                k_r_m_r_bar_mat = m_parameters_.m_kernel_class_->evaluate_mat(r_m_r_bar); // returns 0 if value is nan
+                m_parameters_.m_kernel_class_->evaluate_mat(r_m_r_bar, K_r_m_r_bar_mat); // returns 0 if value is nan
                 
                 // r * K(r - r_bar)
                 // Multiply should be of the same number of channels
                 if (radiances_s_d.channels() > 1)
                 {
-                    Vec<Mat> channels(radiances_s_d.channels(), k_r_m_r_bar_mat);
-                    cv::merge(channels, k_r_m_r_bar_mat);
+                    Vec<Mat> channels(radiances_s_d.channels(), K_r_m_r_bar_mat);
+                    cv::merge(channels, K_r_m_r_bar_mat_vec);
+                    cv::multiply(radiances_s_d, K_r_m_r_bar_mat_vec, r_K_r_m_r_bar_mat);
                 }
-                cv::multiply(radiances_s_d, k_r_m_r_bar_mat, r_k_r_m_r_bar_mat);
-
+                else
+                {
+                    cv::multiply(radiances_s_d, K_r_m_r_bar_mat, r_K_r_m_r_bar_mat);
+                }
+        
                 // Sum over lines
-                cv::reduce(r_k_r_m_r_bar_mat, sum_r_K_r_m_r_bar, 0, cv::REDUCE_SUM);
-                cv::reduce(k_r_m_r_bar_mat, sum_K_r_m_r_bar, 0, cv::REDUCE_SUM);
-                
+                cv::reduce(r_K_r_m_r_bar_mat, sum_r_K_r_m_r_bar, 0, cv::REDUCE_SUM);
+                cv::reduce(K_r_m_r_bar_mat, sum_K_r_m_r_bar, 0, cv::REDUCE_SUM);
+                       
                 // Divide
-                cv::divide(sum_r_K_r_m_r_bar, sum_K_r_m_r_bar, r_bar);
+                if (radiances_s_d.channels() > 1)
+                {
+                    Vec<Mat> channels(radiances_s_d.channels(), sum_K_r_m_r_bar);
+                    cv::merge(channels, sum_K_r_m_r_bar_vec);
+                    cv::divide(sum_r_K_r_m_r_bar, sum_K_r_m_r_bar_vec, r_bar);
+                }
+                else
+                {
+                    cv::divide(sum_r_K_r_m_r_bar, sum_K_r_m_r_bar, r_bar);
+                }
                 
                 // Set nans to zero
                 cv::max(r_bar, cv::Scalar(0.0), r_bar);
@@ -889,8 +998,8 @@ namespace rslf
              * Compute scores 
              */
             // Get the last sum { K(r - r_bar) }
-            k_r_m_r_bar_mat = m_parameters_.m_kernel_class_->evaluate_mat(r_m_r_bar);
-            cv::reduce(k_r_m_r_bar_mat, sum_K_r_m_r_bar, 0, cv::REDUCE_SUM);
+            m_parameters_.m_kernel_class_->evaluate_mat(r_m_r_bar, K_r_m_r_bar_mat);
+            cv::reduce(K_r_m_r_bar_mat, sum_K_r_m_r_bar, 0, cv::REDUCE_SUM);
             
             // Get score
             cv::divide(sum_K_r_m_r_bar, card_R, sum_K_r_m_r_bar);
@@ -907,7 +1016,7 @@ namespace rslf
             double maxVal;
             cv::Point minIdx;
             cv::Point maxIdx;
-            cv::minMaxLoc(m_scores_u_d_.row(u).clone(), &minVal, &maxVal, &minIdx, &maxIdx);
+            cv::minMaxLoc(m_scores_u_d_.row(u), &minVal, &maxVal, &minIdx, &maxIdx);
             
             m_best_depth_u_.at<float>(u) = m_d_list_.at(maxIdx.x);
             m_score_depth_u_.at<float>(u) = maxVal;
@@ -917,11 +1026,6 @@ namespace rslf
  
         }
         
-        /*
-         * Apply a median filter on the resulting depths
-         */
-        //cv::medianBlur(m_best_depth_u_, m_best_depth_u_, _MEDIAN_FILTER_SIZE);
-
     }
 
 }

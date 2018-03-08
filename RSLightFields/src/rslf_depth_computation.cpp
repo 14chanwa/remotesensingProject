@@ -41,15 +41,13 @@ float rslf::BandwidthKernel<float>::evaluate(float x) {
 }
 
 template<>
-rslf::Mat rslf::BandwidthKernel<float>::evaluate_mat(Mat m) {
-    Mat res;
+void rslf::BandwidthKernel<float>::evaluate_mat(const Mat& src, Mat& dst) {
     // (x/h)^2
-    cv::pow(m / m_h_, 2, res);
+    cv::multiply(src, src, dst, inv_m_h_sq);
     // 1 - (x/h)^2
-    res = 1 - res;
+    cv::subtract(1.0, dst, dst);
     // max( 1 - (x/h)^2, 0 ) ; this operation removes nan's
-    cv::max(res, 0.0, res);
-    return res;
+    cv::max(dst, 0.0, dst);
 }
 
 template<>
@@ -63,19 +61,17 @@ float rslf::BandwidthKernel<cv::Vec3f>::evaluate(cv::Vec3f x) {
 }
 
 template<>
-rslf::Mat rslf::BandwidthKernel<cv::Vec3f>::evaluate_mat(Mat m) {
-    Mat res;
+void rslf::BandwidthKernel<cv::Vec3f>::evaluate_mat(const Mat& src, Mat& dst) {
     // (x/h)^2
-    cv::pow(m / m_h_, 2, res);
+    cv::multiply(src, src, dst, inv_m_h_sq);
     // sum over channels
-    Vec<Mat> channels;
-    cv::split(res, channels);
-    res = channels[0];
-    for (int c=1; c<channels.size(); c++)
-        res += channels[c];
+    int rows = src.rows;
+    int cols = src.cols;
+    dst = dst.reshape(1, rows * cols);
+    cv::reduce(dst, dst, 1, cv::REDUCE_SUM);
+    dst = dst.reshape(1, rows);
     // 1 - (x/h)^2
-    res = 1 - res;
+    cv::subtract(1.0, dst, dst);
     // max( 1 - (x/h)^2, 0 ) ; this operation removes nan's
-    cv::max(res, 0.0, res);
-    return res;
+    cv::max(dst, 0.0, dst);
 }

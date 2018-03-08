@@ -42,7 +42,7 @@ int main(int argc, char* argv[])
     
     std::cout << d_list.size() << " d values requested" << std::endl;
     
-    rslf::Depth1DParameters<float>& parameters = rslf::Depth1DParameters<float>::get_default();
+    const rslf::Depth1DParameters<float>& parameters = rslf::Depth1DParameters<float>::get_default();
     
     //~ rslf::DepthComputer1D<cv::Vec3f> depth_computer_1d(epi, d_list);
     rslf::Depth1DComputer<float> depth_computer_1d(epi, d_list);

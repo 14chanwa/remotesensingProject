@@ -152,6 +152,7 @@ We first write codes to compute and display EPIs. We investigate possible artefa
 \end{figure}
 
 
+\clearpage
 \section{First rough estimation of the disparities}
 
 
@@ -222,6 +223,7 @@ We also created a template code so as to be able to adapt to different data type
 \end{figure}
 
 
+\clearpage
 \section{After scaling, confidence threshold}
 
 
@@ -283,6 +285,51 @@ we obtain the results presented in Figures \ref{fig:wconf:skysat:380}, \ref{fig:
   \includegraphics[width=0.7\textwidth]{images/1520438877175_dmap.png}
   \caption{Sample outputs depth maps where $C_e > 0.02$ (mansion [626 seconds] and Skysat [51 seconds] with 120 tested $d$ values between $-2.0$ and $4.0$, no median filter)}
   \label{fig:wconf:piles}
+\end{figure}
+
+
+\clearpage
+\section{Selective median filter}
+
+We implement and apply a median filter on the resulting disparity map $D$ along dimensions $u, v$ such that in the end, for a point $(u, v)$ such that $C_e (u, v) > 0.02$, the selected value $d_{u, v}$ is the median value of the set:
+\[ \left\{ d_{u', v'} \; | \; (u', v') \in \mathcal{N}_{u, v}, \; C_e(u', v') > 0.02, \; \norm{E_{v}(\widehat{s}, u) - E_{v'}(\widehat{s}, u')} < 0.1 \right\}.\]
+
+$\mathcal{N}_{u, v}$ is a neighbourhood of $(u, v)$ -- we select a square neighbourhood centered on $(u, v)$, of overall size $k$. The results are presented in Figures x, x.
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.3\textwidth]{images/1520620453023_dmap.png}
+  \includegraphics[width=0.6\textwidth]{images/1520620380080_dmap.png} \\
+  
+  \includegraphics[width=0.3\textwidth]{images/1520620453023_epi_colored.png}
+  \includegraphics[width=0.6\textwidth]{images/1520618708656_epi_colored.png}
+  \caption{Disparity map and sample epi after median filter, $k=1$ (no median)}
+  \label{fig:median:1}
+\end{figure}
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.3\textwidth]{images/1520617477650_dmap.png}
+  \includegraphics[width=0.6\textwidth]{images/1520618100513_dmap.png} \\
+  
+  \includegraphics[width=0.3\textwidth]{images/1520617477650_epi_colored.png}
+  \includegraphics[width=0.6\textwidth]{images/1520618100513_epi_colored.png}
+  \caption{Disparity map and sample epi after median filter, $k=5$}
+  \label{fig:median:5}
+\end{figure}
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.3\textwidth]{images/1520617394231_dmap.png}
+  \includegraphics[width=0.6\textwidth]{images/1520618708656_dmap.png} \\
+  
+  \includegraphics[width=0.3\textwidth]{images/1520617394231_epi_colored.png}
+  \includegraphics[width=0.6\textwidth]{images/1520618708656_epi_colored.png}
+  \caption{Disparity map and sample epi after median filter, $k=11$}
+  \label{fig:median:11}
 \end{figure}
 
 

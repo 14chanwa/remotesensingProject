@@ -11,27 +11,44 @@
  */
  
 template<>
-float rslf::nan_type<float>() {
+float rslf::nan_type<float>() 
+{
     return std::numeric_limits<float>::quiet_NaN();
 }
 
 template<>
-cv::Vec3f rslf::nan_type<cv::Vec3f>() {
+cv::Vec3f rslf::nan_type<cv::Vec3f>() 
+{
     return cv::Vec3f(std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN());
 }
 
 template<>
-bool rslf::is_nan_type<float>(float x) {
+bool rslf::is_nan_type<float>(float x) 
+{
     return x != x;
 }
 
 template<>
-bool rslf::is_nan_type<cv::Vec3f>(cv::Vec3f x) {
+bool rslf::is_nan_type<cv::Vec3f>(cv::Vec3f x) 
+{
     return x[0] != x[0] || x[1] != x[1] ||x[2] != x[2];
 }
 
 template<>
-float rslf::BandwidthKernel<float>::evaluate(float x) {
+float rslf::norm<float>(float x) 
+{
+    return std::abs(x);
+}
+
+template<>
+float rslf::norm<cv::Vec3f>(cv::Vec3f x) 
+{
+    return cv::norm(x);
+}
+
+template<>
+float rslf::BandwidthKernel<float>::evaluate(float x) 
+{
     // If none, return 0
     if (rslf::is_nan_type<float>(x))
         return 0;
@@ -41,7 +58,8 @@ float rslf::BandwidthKernel<float>::evaluate(float x) {
 }
 
 template<>
-void rslf::BandwidthKernel<float>::evaluate_mat(const Mat& src, Mat& dst) {
+void rslf::BandwidthKernel<float>::evaluate_mat(const Mat& src, Mat& dst) 
+{
     // (x/h)^2
     cv::multiply(src, src, dst, inv_m_h_sq);
     // 1 - (x/h)^2
@@ -51,7 +69,8 @@ void rslf::BandwidthKernel<float>::evaluate_mat(const Mat& src, Mat& dst) {
 }
 
 template<>
-float rslf::BandwidthKernel<cv::Vec3f>::evaluate(cv::Vec3f x) {
+float rslf::BandwidthKernel<cv::Vec3f>::evaluate(cv::Vec3f x) 
+{
     // If none, return 0
     if (rslf::is_nan_type<cv::Vec3f>(x))
         return 0;
@@ -61,7 +80,8 @@ float rslf::BandwidthKernel<cv::Vec3f>::evaluate(cv::Vec3f x) {
 }
 
 template<>
-void rslf::BandwidthKernel<cv::Vec3f>::evaluate_mat(const Mat& src, Mat& dst) {
+void rslf::BandwidthKernel<cv::Vec3f>::evaluate_mat(const Mat& src, Mat& dst) 
+{
     // (x/h)^2
     cv::multiply(src, src, dst, inv_m_h_sq);
     // sum over channels

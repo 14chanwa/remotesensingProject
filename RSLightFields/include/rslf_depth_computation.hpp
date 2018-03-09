@@ -19,8 +19,8 @@
 #define _MEAN_SHIFT_MAX_ITER 10
 #define _EDGE_CONFIDENCE_FILTER_SIZE 9
 #define _MEDIAN_FILTER_SIZE 5
+#define _MEDIAN_FILTER_EPSILON 0.1
 #define _SCORE_THRESHOLD 0.02
-
 
 
 // Useful links
@@ -29,6 +29,7 @@
 // https://docs.opencv.org/3.4.1/d2/de8/group__core__array.html
 // https://stackoverflow.com/questions/23998422/how-to-access-slices-of-a-3d-matrix-in-opencv
 // https://stackoverflow.com/questions/2724708/is-it-a-good-practice-to-pass-struct-object-as-parameter-to-a-function-in-c
+
 
 namespace rslf
 {
@@ -44,6 +45,15 @@ namespace rslf
     
     template<typename DataType>
     bool is_nan_type(DataType x);
+    
+    template<>
+    bool is_nan_type<float>(float x);
+    
+    template<>
+    bool is_nan_type<cv::Vec3f>(cv::Vec3f x);
+    
+    template<typename DataType>
+    float norm(DataType x);
     
     /**
      * Template generic 1D interpolation class.
@@ -121,42 +131,42 @@ namespace rslf
     struct Depth1DParameters
     {
     private:
-        Depth1DParameters() {}
         static Depth1DParameters m_default_;
-        static bool m_default_inited_;
     public:
-        // TODO enable to define different classes of parameters
+    
+        Depth1DParameters() // initialize at default values
+        {
+            m_interpolation_class_ = new Interpolation1DLinear<DataType>();
+            m_kernel_class_ = new BandwidthKernel<DataType>(0.2);
+            m_score_threshold_ = _SCORE_THRESHOLD;
+            m_mean_shift_max_iter_ = _MEAN_SHIFT_MAX_ITER;
+            m_edge_confidence_filter_size_ = _EDGE_CONFIDENCE_FILTER_SIZE;
+            m_median_filter_size_ = _MEDIAN_FILTER_SIZE;
+            m_median_filter_epsilon_ = _MEDIAN_FILTER_EPSILON;
+        }
+
         Interpolation1DClass<DataType>* m_interpolation_class_;
         KernelClass<DataType>* m_kernel_class_;
         float m_score_threshold_;
         float m_mean_shift_max_iter_;
         int m_edge_confidence_filter_size_;
         int m_median_filter_size_;
+        float m_median_filter_epsilon_;
         
-        ~Depth1DParameters() {
+        ~Depth1DParameters() 
+        {
             delete m_interpolation_class_;
             delete m_kernel_class_;
         }
         
-        static Depth1DParameters& get_default() {
-            if (!m_default_inited_) {
-                m_default_.m_interpolation_class_ = new Interpolation1DLinear<DataType>();
-                m_default_.m_kernel_class_ = new BandwidthKernel<DataType>(0.2);
-                m_default_.m_score_threshold_ = _SCORE_THRESHOLD;
-                m_default_.m_mean_shift_max_iter_ = _MEAN_SHIFT_MAX_ITER;
-                m_default_.m_edge_confidence_filter_size_ = _EDGE_CONFIDENCE_FILTER_SIZE;
-                m_default_.m_median_filter_size_ = _MEDIAN_FILTER_SIZE;
-            }
-            m_default_inited_ = true;
+        static Depth1DParameters& get_default() // get a static default instance
+        {
             return m_default_;
         }
     };
     
     template<typename DataType>
     Depth1DParameters<DataType> Depth1DParameters<DataType>::m_default_ = Depth1DParameters();
-    
-    template<typename DataType>
-    bool Depth1DParameters<DataType>::m_default_inited_ = false;
 
     /**
      * Template class with depth computation using 1d slices of the EPI.
@@ -279,7 +289,19 @@ namespace rslf
         Mat& m_score_depth_u_,
         const Depth1DParameters<DataType>& m_parameters_,
         BufferDepth1D& m_buffer_
-);
+    );
+    
+    template<typename DataType>
+    void selective_median_filter(
+        const Mat& src,
+        Mat& dst,
+        const Vec<Mat>& epis,
+        int s_hat_,
+        int size,
+        const Mat& edge_scores,
+        float score_threshold,
+        float epsilon
+    );
     
     
 
@@ -731,6 +753,21 @@ namespace rslf
     
         std::cout << std::endl;
         
+        // Apply median filter
+        std::cout << "Applying selective median fiter" << std::endl;
+        Mat tmp;
+        selective_median_filter<DataType>(
+            m_best_depth_v_u_, 
+            tmp,
+            m_epis_,
+            m_s_hat_,
+            m_parameters_.m_median_filter_size_, 
+            m_edge_confidence_v_u_, 
+            m_parameters_.m_score_threshold_,
+            m_parameters_.m_median_filter_epsilon_);
+
+        m_best_depth_v_u_ = tmp;
+        
         for (int t=0; t<thr_max; t++)
             delete buffer[t];
         
@@ -800,21 +837,13 @@ namespace rslf
         
         Mat disparity_map;
         
-        std::cout << "m_best_depth_v_u_ " << rslf::type2str(m_best_depth_v_u_.type()) << std::endl;
-        
         disparity_map = rslf::copy_and_scale_uchar(m_best_depth_v_u_);
         cv::applyColorMap(disparity_map, disparity_map, cv_colormap);
-        std::cout << "disparity_map " << rslf::type2str(disparity_map.type()) << ", " << disparity_map.size << std::endl;
         
         // Threshold scores
         Mat disparity_map_with_scores = cv::Mat::zeros(m_dim_v_, m_dim_u_, disparity_map.type());
         
-        std::cout << "m_edge_confidence_v_u_ " << rslf::type2str(m_edge_confidence_v_u_.type()) << ", " << m_edge_confidence_v_u_.size << std::endl;
-        
         Mat score_mask = m_edge_confidence_v_u_ > m_parameters_.m_score_threshold_;
-        //~ std::cout << score_mask << std::endl;
-        //~ std::cout << m_score_threshold_ << std::endl;
-        std::cout << "score_mask " << rslf::type2str(score_mask.type()) << ", " << score_mask.size << std::endl;
         
         cv::add(disparity_map, disparity_map_with_scores, disparity_map_with_scores, score_mask);
         
@@ -1026,6 +1055,64 @@ namespace rslf
  
         }
         
+    }
+    
+    template<typename DataType>
+    void selective_median_filter(
+        const Mat& src,
+        Mat& dst,
+        const Vec<Mat>& epis,
+        int s_hat_,
+        int size,
+        const Mat& edge_scores,
+        float score_threshold,
+        float epsilon
+    )
+    {
+        int m_dim_v_ = src.rows;
+        int m_dim_u_ = src.cols;
+        
+        // Allocate matrix if not allocated yet
+        if (dst.empty() || dst.size != src.size || dst.type() != src.type())
+            dst = Mat(m_dim_v_, m_dim_u_, src.type(), cv::Scalar(0.0));
+        
+        int thr_max = omp_get_max_threads();
+        Vec<Vec<float> > value_buffers;
+        for (int t=0; t<thr_max; t++)
+            value_buffers.push_back(Vec<float>());
+        
+        int width = (size-1)/2;
+        
+#pragma omp parallel for
+        for (int v=0; v<m_dim_v_; v++)
+        {
+            Vec<float> buffer = value_buffers[omp_get_thread_num()];
+            for (int u=0; u<m_dim_u_; u++)
+            {
+                // If mask is null, skip
+                if (edge_scores.at<float>(v, u) > score_threshold)
+                {
+                    buffer.clear();
+                    for (int k=std::max(0, v-width); k<std::min(m_dim_v_, v+width+1); k++)
+                    {
+                        for (int l=std::max(0, u-width); l<std::min(m_dim_u_, u+width+1); l++)
+                        {
+                            if (edge_scores.at<float>(k, l) > score_threshold && 
+                                norm(
+                                    epis[v].at<DataType>(s_hat_, u) - 
+                                    epis[k].at<DataType>(s_hat_, l)
+                                    ) < epsilon)
+                            {
+                                buffer.push_back(src.at<float>(k, l));
+                            }
+                        }
+                    }
+                    // Compute the median
+                    std::nth_element(buffer.begin(), buffer.begin() + buffer.size() / 2, buffer.end());
+                    dst.at<float>(v, u) = buffer[buffer.size() / 2];
+                }
+            }
+        }
     }
 
 }

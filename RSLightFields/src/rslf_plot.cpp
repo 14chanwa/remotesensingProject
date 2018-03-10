@@ -1,11 +1,14 @@
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <rslf_plot.hpp>
-#include <rslf_utils.hpp>
 #include <string>
 #include <iostream>
 
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+
+#include <rslf_plot.hpp>
+
+
 #define _RSLF_MAX_WINDOW_DIMENSION 800
+
 
 void rslf::plot_mat
 (

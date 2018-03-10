@@ -2,7 +2,6 @@
 #include <iostream>
 #include <string>
 #include <rslf_epi.hpp>
-#include <rslf_utils.hpp>
 #include <rslf_io.hpp>
 #include <experimental/filesystem>
 #include <vector>

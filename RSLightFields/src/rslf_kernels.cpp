@@ -1,50 +1,5 @@
-#include <string>
-#include <vector>
-#include <iostream>
-#include <limits>
-#include <opencv2/core/core.hpp>
-#include <rslf_depth_computation.hpp>
+#include <rslf_kernels.hpp>
 
-
-/*
- * Template specializations
- */
- 
-template<>
-float rslf::nan_type<float>() 
-{
-    return std::numeric_limits<float>::quiet_NaN();
-}
-
-template<>
-cv::Vec3f rslf::nan_type<cv::Vec3f>() 
-{
-    return cv::Vec3f(std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN());
-}
-
-template<>
-bool rslf::is_nan_type<float>(float x) 
-{
-    return x != x;
-}
-
-template<>
-bool rslf::is_nan_type<cv::Vec3f>(cv::Vec3f x) 
-{
-    return x[0] != x[0] || x[1] != x[1] ||x[2] != x[2];
-}
-
-template<>
-float rslf::norm<float>(float x) 
-{
-    return std::abs(x);
-}
-
-template<>
-float rslf::norm<cv::Vec3f>(cv::Vec3f x) 
-{
-    return cv::norm(x);
-}
 
 template<>
 float rslf::BandwidthKernel<float>::evaluate(float x) 

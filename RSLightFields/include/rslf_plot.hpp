@@ -2,7 +2,10 @@
 #define _RSLF_PLOT
 
 #include <string>
+
 #include <opencv2/core/core.hpp>
+
+#include <rslf_types.hpp>
 
 
 namespace rslf

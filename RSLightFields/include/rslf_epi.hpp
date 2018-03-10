@@ -1,10 +1,12 @@
 #ifndef _RSLF_EPI
 #define _RSLF_EPI
 
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
 #include <string>
 #include <vector>
+
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
 #include <rslf_types.hpp>
 
 

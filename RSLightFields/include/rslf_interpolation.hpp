@@ -21,7 +21,7 @@ namespace rslf
     {
         public:
             virtual DataType interpolate(const Mat& line_matrix, float index) = 0;
-            virtual void interpolate_mat(const Mat& data_matrix, const Mat& indices, Mat& res) = 0;
+            virtual void interpolate_mat(const Mat& data_matrix, const Mat& indices, Mat& res, Mat& card_non_nan) = 0;
     };
 
     /**
@@ -33,7 +33,7 @@ namespace rslf
         public:
             Interpolation1DNearestNeighbour() {}
             DataType interpolate(const Mat& line_matrix, float index);
-            void interpolate_mat(const Mat& data_matrix, const Mat& indices, Mat& res);
+            void interpolate_mat(const Mat& data_matrix, const Mat& indices, Mat& res, Mat& card_non_nan);
     };
     
     /**
@@ -45,7 +45,7 @@ namespace rslf
         public:
             Interpolation1DLinear() {}
             DataType interpolate(const Mat& line_matrix, float index);
-            void interpolate_mat(const Mat& data_matrix, const Mat& indices, Mat& res);
+            void interpolate_mat(const Mat& data_matrix, const Mat& indices, Mat& res, Mat& card_non_nan);
     };
     
     
@@ -80,25 +80,38 @@ namespace rslf
     (
         const Mat& data_matrix, 
         const Mat& indices,
-        Mat& res
+        Mat& res,
+        Mat& card_non_nan
     )
     {
         // TODO is there a better way to vectorize?
-        assert(indices.rows == data_matrix.rows);
-        if (res.empty() || res.size != data_matrix.size || res.type() != data_matrix.type())
-            res = cv::Mat::zeros(indices.rows, indices.cols, data_matrix.type());
+        //~ assert(indices.rows == data_matrix.rows);
+        //~ if (res.empty() || res.size != data_matrix.size || res.type() != data_matrix.type())
+            //~ res = cv::Mat::zeros(indices.rows, indices.cols, data_matrix.type());
         
-        // Round indices
-        Mat round_indices_matrix;
-        indices.convertTo(round_indices_matrix, CV_32SC1, 1.0, 0.0);
+        //~ // Round indices
+        //~ Mat round_indices_matrix;
+        //~ indices.convertTo(round_indices_matrix, CV_32SC1, 1.0, 0.0);
+        //~ res.setTo(zero_scalar<DataType>());
+        card_non_nan.setTo(0.0);
+        
         // For each row
         for (int r=0; r<indices.rows; r++) {
             const DataType* data_ptr = data_matrix.ptr<DataType>(r);
             DataType* res_ptr = res.ptr<DataType>(r);
-            int* ind_ptr = round_indices_matrix.ptr<int>(r);
+            const int* ind_ptr = indices.ptr<int>(r);
             // For each col
             for (int c=0; c<indices.cols; c++) {
-                res_ptr[c] = (ind_ptr[c] > -1 && ind_ptr[c] < data_matrix.cols ? data_ptr[ind_ptr[c]] : nan_type<DataType>());
+                int rounded_index = (int)std::round(ind_ptr[c]);
+                if (rounded_index > -1 && rounded_index < data_matrix.cols)
+                {
+                    res_ptr[c] = data_ptr[rounded_index];
+                    card_non_nan.at<float>(c) += 1.0;
+                }
+                else
+                {
+                    res_ptr[c] = nan_type<DataType>();
+                }
             }
         }
     }
@@ -130,13 +143,16 @@ namespace rslf
     (
         const Mat& data_matrix, 
         const Mat& indices,
-        Mat& res
+        Mat& res,
+        Mat& card_non_nan
     )
     {
         // TODO is there a better way to vectorize?
-        assert(indices.rows == data_matrix.rows);
-        if (res.empty() || res.size != data_matrix.size || res.type() != data_matrix.type())
-            res = cv::Mat::zeros(indices.rows, indices.cols, data_matrix.type());
+        //~ assert(indices.rows == data_matrix.rows);
+        //~ if (res.empty() || res.size != data_matrix.size || res.type() != data_matrix.type())
+            //~ res = cv::Mat::zeros(indices.rows, indices.cols, data_matrix.type());
+        //~ res.setTo(zero_scalar<DataType>());
+        card_non_nan.setTo(0.0);
         
         // For each row
         for (int r=0; r<indices.rows; r++) {
@@ -148,8 +164,15 @@ namespace rslf
                 int ind_i = (int)std::floor(ind_ptr[c]);
                 int ind_s = (int)std::ceil(ind_ptr[c]);
                 float ind_residue = ind_ptr[c] - ind_i;
-                res_ptr[c] = (ind_i <= 0 || ind_s >= data_matrix.cols - 1 ?
-                    nan_type<DataType>() : (1-ind_residue)*data_ptr[ind_i] + ind_residue*data_ptr[ind_s]);
+                if (!(ind_i < 0 || ind_s > data_matrix.cols - 1))
+                {
+                    res_ptr[c] = (1-ind_residue)*data_ptr[ind_i] + ind_residue*data_ptr[ind_s];
+                    card_non_nan.at<float>(c) += 1.0;
+                }
+                else
+                {
+                    res_ptr[c] = nan_type<DataType>();
+                }
             }
         }
     }

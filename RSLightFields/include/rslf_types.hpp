@@ -41,6 +41,18 @@ namespace rslf
     bool is_nan_type<cv::Vec3f>(cv::Vec3f x);
     
     /*
+     * Zero
+     */
+    template<typename DataType>
+    cv::Scalar zero_scalar();
+    
+    template<>
+    cv::Scalar zero_scalar<float>();
+    
+    template<>
+    cv::Scalar zero_scalar<cv::Vec3f>();
+    
+    /*
      * Template norm
      */
     template<typename DataType>

@@ -36,6 +36,8 @@
 	\fancyfoot[R]{\thepage/\pageref{LastPage}}
 }
 
+\usepackage{animate}
+
 \def\thesubsection{\thesection.\alph{subsection}}
 
 \makeatletter
@@ -331,6 +333,52 @@ $\mathcal{N}_{u, v}$ is a neighbourhood of $(u, v)$ -- we select a square neighb
   \caption{Disparity map and sample epi after median filter, $k=11$}
   \label{fig:median:11}
 \end{figure}
+
+
+\clearpage
+\section{Disparity propagation}
+
+
+After computing the depths for the points $u$ with some fixed $(v, \widehat{s} = \max s / 2)$, and applying a median filter of size 5 along the $(u, v)$ axis, we apply the disparity propagation along the $s$ axis, using the following rules: we propagate the optimal disparity $d(u, \widehat{s})$ computed at $(u, \widehat{s})$ to a point $(u', s')$ (where $u' = u + (\widehat{s} - s') \times d(u, \widehat{s})$) if:
+\begin{enumerate}
+ \item $C_e(u, s) > 0.02$
+ \item $C_e(u', s') > 0.02$
+ \item $\norm{E(u', s') - E(u, \widehat{s})} < 0.1$
+\end{enumerate}
+
+
+In the article, the first rule would have rather been $C_d(u, s) > 0.1$. Yet, we found that in our examples, $C_d$ is very low for most of the points, resulting in almost no disparity being propagating, even with a low threshold on $C_d$. Thus, we accept to propagate depths at points at which the confidence in the value $d$ is low. This is to be investigated further.
+
+
+After propagating the depths, following the article, we compute the remaining unknown depths at points $(u, s)$ where $C_e(u, s) > 0.02$ for increasing $\abs{\widehat{s} - s}$, and propagate at each step. This leads to decreased computation times:
+\begin{itemize}
+ \item For the Skysat sequence, instead of ~4500 seconds (if no propagation is done), the process takes 294 seconds.
+ \item For the downsampled mansion sequence, instead of ~51000 seconds, the process takes 7371 seconds.
+\end{itemize}
+
+
+Some sample frames are presented hereafter. Note that we corrected a bug that perturbated the disparity computation around the borders in the mansion sequence.
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.3\textwidth]{images/1520867757275_dmap_025.png}
+  \includegraphics[width=0.6\textwidth]{images/1520877118843_dmap_025.png} \\
+  
+  \includegraphics[width=0.3\textwidth]{images/1520867757275_epi_colored.png}
+  \includegraphics[width=0.6\textwidth]{images/1520877118843_epi_colored.png}
+  \caption{Disparity map and sample epi after median filter, $k=5$, and propagation. The disparity maps correspond to frame 25, while the propagation originated from frame 50. The sample epis correspond to the midline of the image.}
+  \label{fig:propagation}
+\end{figure}
+
+
+
+%\begin{figure}[ht]
+%  \centering
+% \animategraphics[autoplay,loop,width=0.5\textwidth,controls]{5}{animate_skysat/1520867757275_dmap_}{000}{100}
+%\end{figure}
+
+
 
 
 \clearpage

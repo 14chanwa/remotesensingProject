@@ -31,6 +31,21 @@ bool rslf::is_nan_type<cv::Vec3f>(cv::Vec3f x)
 }
 
 /*
+ * Zero
+ */
+template<>
+cv::Scalar rslf::zero_scalar<float>() 
+{
+    return cv::Scalar(0.0);
+}
+
+template<>
+cv::Scalar rslf::zero_scalar<cv::Vec3f>() 
+{
+    return cv::Scalar(0.0, 0.0, 0.0);
+}
+
+/*
  * OpenCV type explanation
  */
 // Courtesy of Octopus https://stackoverflow.com/a/17820615

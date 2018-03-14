@@ -357,7 +357,16 @@ After propagating the depths, following the article, we compute the remaining un
 \end{itemize}
 
 
-Some sample frames are presented hereafter. Note that we corrected a bug that perturbated the disparity computation around the borders in the mansion sequence.
+Some sample frames are presented in Figure \ref{fig:propagation}. Note that we corrected a bug that perturbated the disparity computation around the borders in the mansion sequence.
+
+
+We also performed a propagation using the criterion $C_d(u, s) > 0.1$. This criterion depends on the magnitude of the scores $S$ ; and thus, it is dependant on the values of the EPI. We normalized the image (the different channels take values in $[0, 1]$, yet the criterion is still dependant on the number of channels ; the equivalent threshold on the Skysat sequence would be different). This led to the Figure \ref{fig:propagation:disp} after a computation time of 34164 seconds. It seems that there is more noise than on the previous experiment, but also that the points that are correct have a more precise $d$ estimation.
+
+
+It also seems that contrary to the mansion image, there seem to be some more blur or less contrast on the images of the Skysat sequence, that result in less points having a high $C_d$ (i.e. the values $d$ computed are likely to be imprecise on this particular sequence).
+
+
+
 
 
 \begin{figure}[ht]
@@ -372,6 +381,12 @@ Some sample frames are presented hereafter. Note that we corrected a bug that pe
 \end{figure}
 
 
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.6\textwidth]{images/1520973007982_dmap_025.png}
+  \caption{Disparity map (frame 25), when popagating only the points with $C_d > 0.1$ and displaying only points with $C_d > 0.1$. We see that there seem to be more outliers than on the previous Figure (and less points drawn overall) ; it might be that the propagation is a way of ensuring consistency between frames, and thus reducing this effect. We can assume nonetheless than the $d$ values are more precise on the points on the wall of the mansion than on the previous Figure.}
+  \label{fig:propagation:disp}
+\end{figure}
 
 %\begin{figure}[ht]
 %  \centering

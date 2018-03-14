@@ -725,6 +725,7 @@ namespace rslf
         Mat disparity_map;
         Mat m_best_depth_v_u_ = m_best_depth_s_v_u_[s];    
         Mat m_edge_confidence_v_u_ = m_edge_confidence_s_v_u_[s];    
+        Mat m_disp_confidence_v_u_ = m_disp_confidence_s_v_u_[s];    
         
         disparity_map = rslf::copy_and_scale_uchar(m_best_depth_v_u_);
         cv::applyColorMap(disparity_map, disparity_map, cv_colormap);
@@ -733,6 +734,7 @@ namespace rslf
         Mat disparity_map_with_scores = cv::Mat::zeros(m_dim_v_, m_dim_u_, disparity_map.type());
         
         Mat score_mask = m_edge_confidence_v_u_ > m_parameters_.m_edge_score_threshold_;
+        //~ Mat score_mask = m_disp_confidence_v_u_ > m_parameters_.m_disp_score_threshold_;
         
         cv::add(disparity_map, disparity_map_with_scores, disparity_map_with_scores, score_mask);
         

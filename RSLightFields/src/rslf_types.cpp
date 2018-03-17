@@ -80,7 +80,8 @@ std::string rslf::type2str(int type)
 template<>
 float rslf::norm<float>(float x) 
 {
-    return std::abs(x);
+    // In order to be consistent with 3channel thresholds: times sqrt(3)
+    return std::abs(x) * 1.73205080757;
 }
 
 template<>

@@ -119,6 +119,20 @@ namespace rslf
         void run();
         Mat get_coloured_epi(int v = -1, int cv_colormap = cv::COLORMAP_JET);
         Mat get_disparity_map(int s = -1, int cv_colormap = cv::COLORMAP_JET);
+        
+        const Vec<Mat>& get_depths_s_v_u_()
+        {
+            return m_best_depth_s_v_u_;
+        }
+        
+        const Vec<Mat>& get_valid_depths_mask_s_v_u_()
+        {
+            Vec<Mat> validity_maps;
+            for (int s=0; s<m_edge_confidence_s_v_u_.size(); s++)
+                // TODO better criterion?
+                validity_maps.push_back(m_edge_confidence_s_v_u_[s] > m_parameters_.m_edge_score_threshold_);
+            return validity_maps;
+        }
     
     private:
         Vec<Mat> m_epis_;

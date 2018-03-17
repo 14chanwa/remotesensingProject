@@ -8,7 +8,8 @@ float rslf::BandwidthKernel<float>::evaluate(float x)
     if (rslf::is_nan_type<float>(x))
         return 0;
     // Else return 1 - (x/h)^2 if (x/h)^2 < 1, else 0
-    float tmp = std::pow(x / m_h_, 2);
+    // In order to be coherent with 3channel thresholds: x3
+    float tmp = 3 * std::pow(x / m_h_, 2);
     return (tmp > 1 ? 0 : 1 - tmp);
 }
 
@@ -16,7 +17,8 @@ template<>
 void rslf::BandwidthKernel<float>::evaluate_mat(const Mat& src, Mat& dst) 
 {
     // (x/h)^2
-    cv::multiply(src, src, dst, inv_m_h_sq);
+    // In order to be coherent with 3channel thresholds: x3
+    cv::multiply(src, src, dst, 3 * inv_m_h_sq);
     // 1 - (x/h)^2
     cv::subtract(1.0, dst, dst);
     // max( 1 - (x/h)^2, 0 ) ; this operation removes nan's

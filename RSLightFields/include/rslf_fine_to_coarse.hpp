@@ -26,7 +26,7 @@ namespace rslf
     
     
     /**
-     * Fuse a pyramid of depths into one depth map
+     * Fuse a pyramid of depths into one depth map and apply a median filter on top of it
      * 
      * @param disp_pyr_p_s_v_u_ A pyramid of disparity maps (finest first)
      * @param validity_indicators_p_s_v_u_ A pyramid of validity indicators for the respective disparity maps
@@ -63,12 +63,14 @@ namespace rslf
         
         void run();
         void get_results(Vec<Mat>& out_map_s_v_u_, Vec<Mat>& out_validity_s_v_u_);
+        void plot_results(Vec<Mat>& out_plot_depth_s_v_u_, int cv_colormap);
         
         //~ Mat get_coloured_epi(int v = -1, int cv_colormap = cv::COLORMAP_JET);
         //~ Mat get_disparity_map(int s = -1, int cv_colormap = cv::COLORMAP_JET);
     
     private:
-        Vec<Depth2DComputer<DataType>*> m_computers_;
+        Vec<Depth2DComputer<DataType>* > m_computers_;
+        Vec<Depth1DParameters<DataType>* > m_parameter_instances_;
     };
     
     
@@ -86,6 +88,9 @@ namespace rslf
     {
         Vec<Mat> tmp_epis = epis;
         
+        int m_start_dim_v_ = tmp_epis.size();
+        int m_start_dim_u_ = tmp_epis[0].cols;
+        
         int m_dim_v_ = tmp_epis.size();
         int m_dim_u_ = tmp_epis[0].cols;
         
@@ -94,8 +99,13 @@ namespace rslf
             
             std::cout << "Creating Depth2DComputer with sizes (" << m_dim_v_ << ", " << m_dim_u_ << ")" << std::endl;
             
+            Depth1DParameters<DataType>* new_parameters = new Depth1DParameters<DataType>();
+            *new_parameters = parameters;
+            // Compute scale factor
+            new_parameters->m_slope_factor = (0.0 + m_dim_u_) / m_start_dim_u_;
+            
             // Create a new Depth2DComputer
-            Depth2DComputer<DataType>* computer = new Depth2DComputer<DataType>(tmp_epis, d_list, epi_scale_factor, parameters);
+            Depth2DComputer<DataType>* computer = new Depth2DComputer<DataType>(tmp_epis, d_list, epi_scale_factor, *new_parameters);
             
             // Downsample
             Vec<Mat> downsampled_epis;
@@ -106,6 +116,7 @@ namespace rslf
             m_dim_u_ = tmp_epis[0].cols;
             
             m_computers_.push_back(computer);
+            m_parameter_instances_.push_back(new_parameters);
         }
     }
     
@@ -114,7 +125,12 @@ namespace rslf
     {
         for (int p=0; p<m_computers_.size(); p++)
         {
+            std::cout << "delete " << p << std::endl;
             delete m_computers_[p];
+            std::cout << "delete computer ok" << std::endl;
+            delete m_parameter_instances_[p];
+            std::cout << "delete parameter ok" << std::endl;
+            std::cout << "ok" << std::endl;
         }
     }
     
@@ -150,7 +166,34 @@ namespace rslf
         );
     }
     
-
+    template<typename DataType>
+    void FineToCoarse<DataType>::plot_results(Vec<Mat>& out_plot_depth_s_v_u_, int cv_colormap)
+    {
+        std::cout << "Plot depth results..." << std::endl;
+        
+        Vec<Mat> out_map_s_v_u_;
+        Vec<Mat> out_validity_s_v_u_;
+        
+        get_results(out_map_s_v_u_, out_validity_s_v_u_);
+    
+        for (int s=0; s<out_map_s_v_u_.size(); s++)
+        {
+            
+            cv::Mat disparity_map = rslf::copy_and_scale_uchar(out_map_s_v_u_[s]);
+            cv::applyColorMap(disparity_map, disparity_map, cv_colormap);
+            
+            int m_dim_v_ = disparity_map.rows;
+            int m_dim_u_ = disparity_map.cols;
+            
+            // Threshold scores
+            cv::Mat disparity_map_with_scores = cv::Mat::zeros(m_dim_v_, m_dim_u_, disparity_map.type());
+            
+            cv::add(disparity_map, disparity_map_with_scores, disparity_map_with_scores, out_validity_s_v_u_[s]);
+            
+            out_plot_depth_s_v_u_.push_back(disparity_map_with_scores);
+        }
+    
+    }
 }
 
 #endif

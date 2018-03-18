@@ -655,8 +655,12 @@ namespace rslf
         int m_dim_u_ = m_epis_[0].cols;
 
         int thr_max = omp_get_max_threads();
+        
         if (m_verbose_)
+        {
             std::cout << "Max num of threads: " << thr_max << std::endl;
+            std::cout << "Slope factor: " << m_parameters_.m_slope_factor << std::endl;
+        }
         
         Vec<BufferDepth1D<DataType>*> m_buffers_;
         for (int t=0; t<thr_max; t++)

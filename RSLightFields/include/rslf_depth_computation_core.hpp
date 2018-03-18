@@ -63,6 +63,7 @@ namespace rslf
             m_median_filter_size_ = _MEDIAN_FILTER_SIZE;
             m_median_filter_epsilon_ = _MEDIAN_FILTER_EPSILON;
             m_propagation_epsilon = _PROPAGATION_EPSILON;
+            m_slope_factor = 1.0; // Useful when subsampling EPIs
         }
 
         Interpolation1DClass<DataType>* m_interpolation_class_;
@@ -74,11 +75,20 @@ namespace rslf
         int m_median_filter_size_;
         float m_median_filter_epsilon_;
         float m_propagation_epsilon;
+        float m_slope_factor;
         
         ~Depth1DParameters() 
         {
-            delete m_interpolation_class_;
-            delete m_kernel_class_;
+            if (m_interpolation_class_ != NULL)
+            {
+                delete m_interpolation_class_;
+                m_interpolation_class_ = NULL;
+            }
+            if (m_kernel_class_ != NULL)
+            {
+                delete m_kernel_class_;
+                m_kernel_class_ = NULL;
+            }
         }
         
         static Depth1DParameters& get_default() // get a static default instance
@@ -633,6 +643,7 @@ namespace rslf
         
         // Index matrix
         Mat indices = S * D;
+        indices *= m_parameters_.m_slope_factor; // multiply by the slope factor
         
         // For progress bar
         float progress = 0.0;

@@ -2,6 +2,7 @@
 
 
 #define _GAUSSIAN_KSIZE 7
+#define _FINAL_MEDIAN_FILTER_SIZE 3
 
 
 /*
@@ -120,7 +121,12 @@ void rslf::fuse_disp_maps(const Vec<Vec<Mat >>& disp_pyr_p_s_v_u_, const Vec<Vec
             
             cv::bitwise_or(mask_pyr_v_u_[p-1], tmp_mask_up, tmp_mask_down);
         }
-        out_map_s_v_u_.push_back(tmp_map_down);
+        
+        // Apply median filter
+        Mat tmp;
+        cv::medianBlur(tmp_map_down, tmp, _FINAL_MEDIAN_FILTER_SIZE);
+        
+        out_map_s_v_u_.push_back(tmp);
         out_validity_s_v_u_.push_back(tmp_mask_down);
     }
 }

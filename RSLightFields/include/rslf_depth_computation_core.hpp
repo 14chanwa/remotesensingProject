@@ -186,7 +186,8 @@ namespace rslf
         Mat& m_rbar_v_u_,
         const Depth1DParameters<DataType>& m_parameters_,
         Vec<BufferDepth1D<DataType>* >& m_buffers_,
-        Mat& m_mask_v_u_
+        Mat& m_mask_v_u_,
+        bool m_verbose_ = true
     );
     
     
@@ -214,7 +215,8 @@ namespace rslf
         Vec<Mat>& m_best_depth_s_v_u_,
         Vec<Mat>& m_rbar_s_v_u_,
         const Depth1DParameters<DataType>& m_parameters_,
-        Vec<BufferDepth1D<DataType>* >& m_buffers_
+        Vec<BufferDepth1D<DataType>* >& m_buffers_,
+        bool m_verbose_ = true
     );
     
     
@@ -604,7 +606,8 @@ namespace rslf
         Mat& m_rbar_v_u_,
         const Depth1DParameters<DataType>& m_parameters_,
         Vec<BufferDepth1D<DataType>* >& m_buffers_,
-        Mat& m_mask_v_u_
+        Mat& m_mask_v_u_,
+        bool m_verbose_
     )
     {
         // Dimension
@@ -677,34 +680,31 @@ namespace rslf
             //~ std::cout << m_rbar_u_.size << std::endl;
             //~ std::cout << m_rbar_u_ << std::endl;
             
+            if (m_verbose_)
+            {
 #pragma omp critical
 {
-            // Display progress bar
-            std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-            std::cout << "[";
-            int pos = barWidth * progress / m_dim_v_;
-            for (int i = 0; i < barWidth; ++i) {
-                if (i < pos) std::cout << "=";
-                else if (i == pos) std::cout << ">";
-                else std::cout << " ";
-            }
-            std::cout << "] " << int(progress * 100.0 / m_dim_v_) << "% \t" << std::chrono::duration_cast<std::chrono::seconds>( t2 - t1 ).count() << "s \r";
-            std::cout.flush();
+                // Display progress bar
+                std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+                std::cout << "[";
+                int pos = barWidth * progress / m_dim_v_;
+                for (int i = 0; i < barWidth; ++i) {
+                    if (i < pos) std::cout << "=";
+                    else if (i == pos) std::cout << ">";
+                    else std::cout << " ";
+                }
+                std::cout << "] " << int(progress * 100.0 / m_dim_v_) << "% \t" << std::chrono::duration_cast<std::chrono::seconds>( t2 - t1 ).count() << "s \r";
+                std::cout.flush();
 }
 #pragma omp atomic
-           progress += 1.0;
-            
+               progress += 1.0;
+            }
         }
-    
-        std::cout << std::endl;
-        
-        //~ std::cout << rslf::type2str(m_rbar_v_u_.type()) << std::endl;
-        //~ std::cout << m_rbar_v_u_.size << std::endl;
-        //~ std::cout << m_rbar_v_u_ << std::endl;
-            //~ assert(false);
         
         // Apply median filter
-        std::cout << "Applying selective median fiter" << std::endl;
+        if (m_verbose_)
+            std::cout << std::endl << "Applying selective median fiter" << std::endl;
+        
         Mat tmp;
         selective_median_filter<DataType>(
             m_best_depth_v_u_, 
@@ -760,7 +760,8 @@ namespace rslf
         Vec<Mat>& m_best_depth_s_v_u_,
         Vec<Mat>& m_rbar_s_v_u_,
         const Depth1DParameters<DataType>& m_parameters_,
-        Vec<BufferDepth1D<DataType>* >& m_buffers_
+        Vec<BufferDepth1D<DataType>* >& m_buffers_,
+        bool m_verbose_
     )
     {
         int m_dim_s_ = m_epis_[0].rows;
@@ -799,7 +800,8 @@ namespace rslf
         {
             int s_hat = *it;
             
-            std::cout << "Computing s_hat=" << s_hat << std::endl;
+            if (m_verbose_)
+                std::cout << "Computing s_hat=" << s_hat << std::endl;
             
             m_edge_confidence_v_u_ = m_edge_confidence_s_v_u_[s_hat];
             m_disp_confidence_v_u_ = m_disp_confidence_s_v_u_[s_hat];
@@ -817,10 +819,12 @@ namespace rslf
                 m_rbar_v_u_,
                 m_parameters_,
                 m_buffers_,
-                m_mask_v_u_
+                m_mask_v_u_,
+                false // verbose
             );
             
-            std::cout << "Propagation..." << std::endl;
+            if (m_verbose_)
+                std::cout << "Propagation..." << std::endl;
             
             // Propagate depths over lines and update further mask lines
             // For each column of the s_hat row, draw the line, taking overlays into account

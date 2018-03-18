@@ -34,21 +34,25 @@ void rslf::downsample_EPIs(const Vec<Mat>& in_epis, Vec<Mat>& out_epis)
         // Filter by a gaussian filter along the spatial dimensions
         // TODO: better border condition useful?
         cv::GaussianBlur(tmp, tmp2, cv::Size(_GAUSSIAN_KSIZE, _GAUSSIAN_KSIZE), 0, 0, cv::BORDER_REFLECT);
+        //~ std::cout << "filter ok" << std::endl;
         
         // Subsample by a factor 2 (since we already filtered, nn should be ok)
         cv::resize(tmp2, tmp3, cv::Size(), 0.5, 0.5, cv::INTER_NEAREST);
+        //~ std::cout << "resize ok" << std::endl;
             
         // Store the result
         images_s_v_u_.push_back(tmp3);
     }
     
     // Rearrange lines to out_epis
-    for (int v=0; v<m_dim_v_; v++)
+    for (int v=0; v<images_s_v_u_[0].rows; v++)
     {
-        Mat tmp = Mat(m_dim_s_, m_dim_u_, dtype, cv::Scalar(0.0));
+        Mat tmp = Mat(m_dim_s_, images_s_v_u_[0].cols, dtype, cv::Scalar(0.0));
         for (int s=0; s<m_dim_s_; s++)
         {
+            //~ std::cout << "sizes: " << images_s_v_u_[s].row(v).size() << ", " << tmp.row(s).size() << std::endl;
             images_s_v_u_[s].row(v).copyTo(tmp.row(s));
+            //~ std::cout << "copy ok" << std::endl;
         }
         out_epis.push_back(tmp);
     }
@@ -105,7 +109,14 @@ void rslf::fuse_disp_maps(const Vec<Vec<Mat >>& disp_pyr_p_s_v_u_, const Vec<Vec
             // One could refine the way the unknown disp are affected, for instance by checking the bounds
             // on the horizontal lines as described in the article
             tmp_map_down = disp_pyr_v_u_[p-1].clone();
-            tmp_map_down.setTo(tmp_map_up, mask_pyr_v_u_[p-1] == 0);
+            
+            Mat tmp_mask = mask_pyr_v_u_[p-1] == 0;
+            std::cout << "tmp_map_down " << rslf::type2str(tmp_map_down.type()) << ", " << tmp_map_down.size() << std::endl;
+            std::cout << "tmp_map_up " << rslf::type2str(tmp_map_up.type()) << ", " << tmp_map_up.size() << std::endl;
+            std::cout << "tmp_mask " << rslf::type2str(tmp_mask.type()) << ", " << tmp_mask.size() << std::endl;
+            
+            tmp_map_down.setTo(0.0, tmp_mask);
+            cv::add(tmp_map_down, tmp_map_up, tmp_map_down, tmp_mask);
             
             cv::bitwise_or(mask_pyr_v_u_[p-1], tmp_mask_up, tmp_mask_down);
         }

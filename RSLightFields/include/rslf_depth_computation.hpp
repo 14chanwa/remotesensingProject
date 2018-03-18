@@ -113,7 +113,8 @@ namespace rslf
             const Vec<Mat>& epis, 
             const Vec<float>& d_list,
             float epi_scale_factor = -1,
-            const Depth1DParameters<DataType>& parameters = Depth1DParameters<DataType>::get_default()
+            const Depth1DParameters<DataType>& parameters = Depth1DParameters<DataType>::get_default(),
+            bool verbose = true
       );
         
         void run();
@@ -127,11 +128,13 @@ namespace rslf
         
         const Vec<Mat>& get_valid_depths_mask_s_v_u_()
         {
-            Vec<Mat> validity_maps;
+            Vec<Mat>* validity_maps = new Vec<Mat>();
             for (int s=0; s<m_edge_confidence_s_v_u_.size(); s++)
+            {
                 // TODO better criterion?
-                validity_maps.push_back(m_edge_confidence_s_v_u_[s] > m_parameters_.m_edge_score_threshold_);
-            return validity_maps;
+                validity_maps->push_back(m_edge_confidence_s_v_u_[s] > m_parameters_.m_edge_score_threshold_);
+            }
+            return *validity_maps;
         }
     
     private:
@@ -144,6 +147,8 @@ namespace rslf
         Vec<Mat> m_best_depth_s_v_u_;
         
         const Depth1DParameters<DataType>& m_parameters_;
+        
+        bool m_verbose_;
     };
     
     
@@ -564,10 +569,12 @@ namespace rslf
         const Vec<Mat>& epis, 
         const Vec<float>& d_list,
         float epi_scale_factor,
-        const Depth1DParameters<DataType>& parameters
+        const Depth1DParameters<DataType>& parameters,
+        bool verbose
     ) : 
         m_d_list_(d_list),
-        m_parameters_(parameters)
+        m_parameters_(parameters),
+        m_verbose_(verbose)
     {
         m_epis_ = Vec<Mat>(epis.size(), Mat(epis[0].rows, epis[0].cols, epis[0].type()));
     
@@ -648,7 +655,8 @@ namespace rslf
         int m_dim_u_ = m_epis_[0].cols;
 
         int thr_max = omp_get_max_threads();
-        std::cout << "Max num of threads: " << thr_max << std::endl;
+        if (m_verbose_)
+            std::cout << "Max num of threads: " << thr_max << std::endl;
         
         Vec<BufferDepth1D<DataType>*> m_buffers_;
         for (int t=0; t<thr_max; t++)
@@ -676,7 +684,8 @@ namespace rslf
             m_best_depth_s_v_u_,
             m_rbar_s_v_u_,
             m_parameters_,
-            m_buffers_
+            m_buffers_,
+            m_verbose_
         );
 
         for (int t=0; t<thr_max; t++)

@@ -131,10 +131,36 @@ namespace rslf
             Vec<Mat>* validity_maps = new Vec<Mat>();
             for (int s=0; s<m_edge_confidence_s_v_u_.size(); s++)
             {
-                // TODO better criterion?
+                int m_dim_v_ = m_edge_confidence_s_v_u_[0].rows;
+                int m_dim_u_ = m_edge_confidence_s_v_u_[0].cols;
+                
+                //~ // Get elementwise norm
+                //~ Mat im_norm = Mat(m_dim_v_, m_dim_u_, CV_32FC1);
+                //~ for (int v=0; v<m_dim_v_; v++)
+                //~ {
+                    //~ for (int u=0; u<m_dim_u_; u++)
+                    //~ {
+                        //~ im_norm.at<float>(v, u) = norm<DataType>(m_epis_[v].at<DataType>(s, u));
+                    //~ }
+                //~ }
+                
+                //~ // TODO better criterion?
+                //~ Mat thr1 = m_edge_confidence_s_v_u_[s] > m_parameters_.m_edge_score_threshold_;
+                //~ Mat thr2 = im_norm > 0.2 * 1.73205080757;
+                //~ Mat tmp =
+                    //~ cv::min(
+                        //~ thr1,
+                        //~ thr2
+                    //~ );
+                //~ validity_maps->push_back(tmp);
                 validity_maps->push_back(m_edge_confidence_s_v_u_[s] > m_parameters_.m_edge_score_threshold_);
             }
             return *validity_maps;
+        }
+
+        const Vec<Mat>& get_epis()
+        {
+            return m_epis_;
         }
     
     private:

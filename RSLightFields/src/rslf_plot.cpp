@@ -63,6 +63,28 @@ cv::Mat rslf::copy_and_scale_uchar
     return res;
 }
 
+
+void rslf::ImageConverter_uchar::fit(const Mat& img)
+{
+    // Find min and max values
+    double true_min, true_max;
+    cv::minMaxLoc(img, &true_min, &true_max);
+    cv::Scalar mean, std;
+    cv::meanStdDev(img, mean, std);
+    //~ min = std::max(0.0, true_min);
+    min = true_min;
+    max = std::min(mean[0] + 5 * std[0], true_max); 
+    std::cout << "min=" << min << ", max=" << max << std::endl;
+}
+
+void rslf::ImageConverter_uchar::copy_and_scale(const Mat& src, Mat& dst)
+{
+    // Copy and scale values to uchar
+    float alpha = 255.0/(max-min);
+    src.convertTo(dst, CV_8U, alpha, -alpha * min);
+}
+
+
 cv::Mat rslf::draw_red_lines
 (
     cv::Mat img,

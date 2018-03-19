@@ -62,8 +62,12 @@ namespace rslf
         ~FineToCoarse();
         
         void run();
+        
         void get_results(Vec<Mat>& out_map_s_v_u_, Vec<Mat>& out_validity_s_v_u_);
-        void plot_results(Vec<Mat>& out_plot_depth_s_v_u_, int cv_colormap);
+        
+        void get_coloured_depth_maps(Vec<Mat>& out_plot_depth_s_v_u_, int cv_colormap = cv::COLORMAP_JET);
+        void get_coloured_epi_pyr(Vec<Mat>& out_plot_epi_pyr_p_s_u_, int v = -1, int cv_colormap = cv::COLORMAP_JET);
+        void get_coloured_depth_pyr(Vec<Mat>& out_plot_depth_pyr_p_v_u_, int s = -1, int cv_colormap = cv::COLORMAP_JET);
         
         //~ Mat get_coloured_epi(int v = -1, int cv_colormap = cv::COLORMAP_JET);
         //~ Mat get_disparity_map(int s = -1, int cv_colormap = cv::COLORMAP_JET);
@@ -76,6 +80,7 @@ namespace rslf
     
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
+
 
     template<typename DataType>
     FineToCoarse<DataType>::FineToCoarse
@@ -167,32 +172,126 @@ namespace rslf
     }
     
     template<typename DataType>
-    void FineToCoarse<DataType>::plot_results(Vec<Mat>& out_plot_depth_s_v_u_, int cv_colormap)
+    void FineToCoarse<DataType>::get_coloured_depth_maps(Vec<Mat>& out_plot_depth_s_v_u_, int cv_colormap)
     {
         std::cout << "Plot depth results..." << std::endl;
         
         Vec<Mat> out_map_s_v_u_;
         Vec<Mat> out_validity_s_v_u_;
         
-        get_results(out_map_s_v_u_, out_validity_s_v_u_);
+        get_results
+        (
+            out_map_s_v_u_, 
+            out_validity_s_v_u_
+        );
+        
+        int m_dim_s_ = out_map_s_v_u_.size();
+        int m_dim_v_ = out_map_s_v_u_[0].rows;
+        int m_dim_u_ = out_map_s_v_u_[0].cols;
+        
+        ImageConverter_uchar image_converter;
+        image_converter.fit(out_map_s_v_u_[(int)std::round(m_dim_s_/2.0)]);
     
-        for (int s=0; s<out_map_s_v_u_.size(); s++)
+        for (int s=0; s<m_dim_s_; s++)
         {
             
-            cv::Mat disparity_map = rslf::copy_and_scale_uchar(out_map_s_v_u_[s]);
+            Mat disparity_map;
+            image_converter.copy_and_scale(out_map_s_v_u_[s], disparity_map);
             cv::applyColorMap(disparity_map, disparity_map, cv_colormap);
             
             int m_dim_v_ = disparity_map.rows;
             int m_dim_u_ = disparity_map.cols;
             
             // Threshold scores
-            cv::Mat disparity_map_with_scores = cv::Mat::zeros(m_dim_v_, m_dim_u_, disparity_map.type());
+            disparity_map.setTo(0.0, out_validity_s_v_u_[s] == 0);
             
-            cv::add(disparity_map, disparity_map_with_scores, disparity_map_with_scores, out_validity_s_v_u_[s]);
+            // Get image norm view
+            Mat im_norm = Mat(m_dim_v_, m_dim_u_, CV_32FC1);
+            for (int v=0; v<m_dim_v_; v++)
+            {
+                for (int u=0; u<m_dim_u_; u++)
+                {
+                    Mat tmp = m_computers_[0]->get_epis()[v];
+                    im_norm.at<float>(v, u) = norm<DataType>(tmp.at<DataType>(s, u));
+                }
+            }
+            disparity_map.setTo(0.0, im_norm < _SHADOW_NORMALIZED_LEVEL);
             
-            out_plot_depth_s_v_u_.push_back(disparity_map_with_scores);
+            out_plot_depth_s_v_u_.push_back(disparity_map);
         }
     
+    }
+    
+    template<typename DataType>
+    void FineToCoarse<DataType>::get_coloured_epi_pyr(Vec<Mat>& out_plot_epi_pyr_p_s_u_, int v, int cv_colormap) {
+        
+        int m_pyr_size_ = m_computers_.size();
+        int m_dim_v_orig_ = m_computers_[0]->get_depths_s_v_u_()[0].rows;
+        
+        if (v == -1)
+            v = (int)std::round(m_dim_v_orig_/2.0);
+        
+        ImageConverter_uchar image_converter;
+        
+        out_plot_epi_pyr_p_s_u_.clear();
+        for (int p=0; p<m_pyr_size_; p++)
+        {
+            int m_dim_s_ = m_computers_[p]->get_depths_s_v_u_().size();
+            int m_dim_v_ = m_computers_[p]->get_depths_s_v_u_()[0].rows;
+            int m_dim_u_ = m_computers_[p]->get_depths_s_v_u_()[0].cols;
+            
+            Mat tmp(m_dim_s_, m_dim_u_, CV_32FC1);
+            
+            int v_scaled = (int)std::round(1.0 * v * m_dim_v_ / m_dim_v_orig_);
+            
+            Vec<Mat> masks = m_computers_[p]->get_valid_depths_mask_s_v_u_();
+            
+            for (int s=0; s<m_dim_s_; s++)
+            {
+                m_computers_[p]->get_depths_s_v_u_()[s].row(v_scaled).copyTo(tmp.row(s));
+                tmp.row(s).setTo(0.0, masks[s].row(v_scaled) == 0);
+            }
+            
+            if (p == 0)
+                image_converter.fit(tmp);
+            
+            image_converter.copy_and_scale(tmp, tmp);
+            cv::applyColorMap(tmp, tmp, cv_colormap);
+            
+            out_plot_epi_pyr_p_s_u_.push_back(tmp);
+        }
+        
+    }
+    
+    
+    template<typename DataType>
+    void FineToCoarse<DataType>::get_coloured_depth_pyr(Vec<Mat>& out_plot_depth_pyr_p_v_u_, int s, int cv_colormap) {
+        
+        int m_pyr_size_ = m_computers_.size();
+        int m_dim_s_ = m_computers_[0]->get_depths_s_v_u_().size();
+        
+        if (s == -1)
+            s = (int)std::round(m_dim_s_/2.0);
+        
+        ImageConverter_uchar image_converter;
+        
+        out_plot_depth_pyr_p_v_u_.clear();
+        for (int p=0; p<m_pyr_size_; p++)
+        {
+            Mat tmp = m_computers_[p]->get_depths_s_v_u_()[s].clone();
+            
+            if (p == 0)
+                image_converter.fit(tmp);
+            
+            image_converter.copy_and_scale(tmp, tmp);
+            cv::applyColorMap(tmp, tmp, cv_colormap);
+            
+            Vec<Mat> masks = m_computers_[p]->get_valid_depths_mask_s_v_u_();
+            
+            tmp.setTo(0.0, masks[s] == 0);
+            
+            out_plot_depth_pyr_p_v_u_.push_back(tmp);
+        }
     }
 }
 

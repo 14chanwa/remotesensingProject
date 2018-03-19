@@ -19,7 +19,7 @@ namespace rslf
      */
     void plot_mat
     (
-        cv::Mat img, 
+        Mat img, 
         std::string window_name = "Image"
     );
     
@@ -29,10 +29,20 @@ namespace rslf
      * @param img The matrix to be scaled.
      * @return A copy of the matrix, scaled to uchar.
      */
-    cv::Mat copy_and_scale_uchar
+    Mat copy_and_scale_uchar
     (
-        cv::Mat img
+        Mat img
     );
+    
+    class ImageConverter_uchar
+    {
+    public:
+        void fit(const Mat& img);
+        void copy_and_scale(const Mat& src, Mat& dst);
+    private:
+        double min;
+        double max;
+    };
     
     /**
      * Scale values to plottable (uchar 0..255) and overlays the given 
@@ -44,9 +54,9 @@ namespace rslf
      * @param fill_col Fill a col in blank? -1 for no, else col index
      * @param max_width Truncate the image to this width.
      */
-    cv::Mat draw_red_lines
+    Mat draw_red_lines
     (
-        cv::Mat img,
+        Mat img,
         int fill_row_red = -1,
         int max_height = -1,
         int fill_col_red = -1,

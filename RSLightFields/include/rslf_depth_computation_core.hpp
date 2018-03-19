@@ -27,6 +27,10 @@
 #define _DISP_SCORE_THRESHOLD 0.1
 #define _PROPAGATION_EPSILON 0.1
 
+#define _SHADOW_NORMALIZED_LEVEL 0.1 * 1.73205080757 
+// between 0 and 1, 0 being dark and 1 being blank
+// multiplied by sqrt(3) for consistency with 3channels
+
 
 // Useful links
 // https://docs.opencv.org/3.4.1/
@@ -81,13 +85,17 @@ namespace rslf
         {
             if (m_interpolation_class_ != NULL)
             {
+                std::cout << "deleting m_interpolation_class_" << std::endl;
                 delete m_interpolation_class_;
                 m_interpolation_class_ = NULL;
+                std::cout << "d ok" << std::endl;
             }
             if (m_kernel_class_ != NULL)
             {
+                std::cout << "deleting m_kernel_class_" << std::endl;
                 delete m_kernel_class_;
                 m_kernel_class_ = NULL;
+                std::cout << "d ok" << std::endl;
             }
         }
         
@@ -333,6 +341,17 @@ namespace rslf
             // Sum square values into edge confidence
             _square_sum_channels_into<DataType>(tmp, m_edge_confidence_u_, tmp2);
         }
+        
+        // TODO
+        // Dirty way to remove all dark pixels
+        // Get elementwise norm
+        Mat im_norm = Mat(1, m_edge_confidence_u_.cols, CV_32FC1);
+        for (int u=0; u<m_edge_confidence_u_.cols; u++)
+        {
+            im_norm.at<float>(u) = norm<DataType>(m_epi_.row(s).at<DataType>(u));
+        }
+        
+        m_edge_confidence_u_.setTo(0.0, im_norm < _SHADOW_NORMALIZED_LEVEL);
     }
     
     template<typename DataType>

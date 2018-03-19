@@ -21,8 +21,8 @@ int main(int argc, char* argv[])
 
     
     // Load all images in folder
-    //~ std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/skysat_lasvegas_rectified/rectified_equalized_resized_frames_step18/", "tif", CV_LOAD_IMAGE_UNCHANGED);
-    std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/mansion_image_resized/", "jpg", CV_LOAD_IMAGE_UNCHANGED);
+    std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/skysat_lasvegas_rectified/rectified_equalized_resized_frames_step18/", "tif", CV_LOAD_IMAGE_UNCHANGED);
+    //~ std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/mansion_image_resized/", "jpg", CV_LOAD_IMAGE_UNCHANGED);
     
     std::cout << list_mat.size() << " images read" << std::endl;
     
@@ -41,17 +41,20 @@ int main(int argc, char* argv[])
     
     std::cout << d_list.size() << " d values requested" << std::endl;
     
-    //~ rslf::FineToCoarse<float> fine_to_coarse(epis, d_list);
-    rslf::FineToCoarse<cv::Vec3f> fine_to_coarse(epis, d_list);
+    rslf::FineToCoarse<float> fine_to_coarse(epis, d_list);
+    //~ rslf::FineToCoarse<cv::Vec3f> fine_to_coarse(epis, d_list);
     fine_to_coarse.run();
     
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>( t2 - t1 ).count();
     std::cout << "Time elapsed: " << duration << " seconds" << std::endl;
     
-    std::vector<cv::Mat> out_map_s_v_u_;
-    std::vector<cv::Mat> out_validity_s_v_u_;
-    fine_to_coarse.get_results(out_map_s_v_u_, out_validity_s_v_u_);
+    std::vector<cv::Mat> out_plot_depth_s_v_u_;
+    fine_to_coarse.get_coloured_depth_maps(out_plot_depth_s_v_u_, cv::COLORMAP_HOT);
+    std::vector<cv::Mat> out_plot_epi_pyr_p_s_u_;
+    fine_to_coarse.get_coloured_epi_pyr(out_plot_epi_pyr_p_s_u_, -1, cv::COLORMAP_HOT);
+    std::vector<cv::Mat> out_plot_depth_pyr_p_v_u_;
+    fine_to_coarse.get_coloured_depth_pyr(out_plot_depth_pyr_p_v_u_, -1, cv::COLORMAP_HOT);
     
     // Save imgs 
     // Base name
@@ -64,31 +67,40 @@ int main(int argc, char* argv[])
     
     std::cout << "Plotting" << std::endl;
     
-    int cv_colormap = cv::COLORMAP_JET;
-    
-    for (int s=0; s<epis[0].rows; s++)
+    for (int s=0; s<out_plot_depth_s_v_u_.size(); s++)
     {
-        
-        cv::Mat disparity_map = rslf::copy_and_scale_uchar(out_map_s_v_u_[s]);
-        cv::applyColorMap(disparity_map, disparity_map, cv_colormap);
-        
-        int m_dim_v_ = disparity_map.rows;
-        int m_dim_u_ = disparity_map.cols;
-        
-        // Threshold scores
-        cv::Mat disparity_map_with_scores = cv::Mat::zeros(m_dim_v_, m_dim_u_, disparity_map.type());
-        
-        cv::add(disparity_map, disparity_map_with_scores, disparity_map_with_scores, out_validity_s_v_u_[s]);
-        
+        std::cout << "plotting s=" << s << std::endl;
         std::stringstream ss;
         ss << std::setw(3) << std::setfill('0') << s;
         std::string s_str = ss.str();
         
         rslf::write_mat_to_imgfile
         (
-            disparity_map_with_scores,
+            out_plot_depth_s_v_u_[s],
             "../output/", 
             base_filename + "_dmap_" + s_str,
+            "png"
+        );
+    }
+    
+    for (int p=0; p<out_plot_depth_pyr_p_v_u_.size(); p++)
+    {
+        std::stringstream ss;
+        ss << std::setw(3) << std::setfill('0') << p;
+        std::string s_str = ss.str();
+    
+        rslf::write_mat_to_imgfile
+        (
+            out_plot_depth_pyr_p_v_u_[p],
+            "../output/", 
+            base_filename + "_pyr_depth_" + s_str,
+            "png"
+        );
+        rslf::write_mat_to_imgfile
+        (
+            out_plot_epi_pyr_p_s_u_[p],
+            "../output/", 
+            base_filename + "_pyr_epi_" + s_str,
             "png"
         );
     }

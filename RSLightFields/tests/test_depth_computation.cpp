@@ -33,19 +33,16 @@ int main(int argc, char* argv[])
     
     cv::Mat epi = rslf::build_row_epi_from_imgs(list_mat, inspected_row);
     
-    std::vector<float> d_list;
     float d_min = -2.0;
     float d_max = 4.0;
-    float interval = 0.05;
-    for (int i=0; i<(d_max-d_min)/interval; i++)
-        d_list.push_back(d_min + interval * i);
+    int dim_d = 120;
     
-    std::cout << d_list.size() << " d values requested" << std::endl;
+    std::cout << dim_d << " d values requested" << std::endl;
     
     rslf::Depth1DParameters<float>& parameters = rslf::Depth1DParameters<float>::get_default();
     
-    //~ rslf::DepthComputer1D<cv::Vec3f> depth_computer_1d(epi, d_list);
-    rslf::Depth1DComputer<float> depth_computer_1d(epi, d_list);
+    //~ rslf::DepthComputer1D<cv::Vec3f> depth_computer_1d(epi, d_min, d_max, dim_d);
+    rslf::Depth1DComputer<float> depth_computer_1d(epi, d_min, d_max, dim_d);
     depth_computer_1d.run();
     
     std::cout << "Plotting" << std::endl;

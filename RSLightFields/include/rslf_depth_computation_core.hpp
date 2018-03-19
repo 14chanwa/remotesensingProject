@@ -27,7 +27,7 @@
 #define _DISP_SCORE_THRESHOLD 0.1
 #define _PROPAGATION_EPSILON 0.1
 
-#define _SHADOW_NORMALIZED_LEVEL 0.1 * 1.73205080757 
+#define _SHADOW_NORMALIZED_LEVEL 0.05 * 1.73205080757 
 // between 0 and 1, 0 being dark and 1 being blank
 // multiplied by sqrt(3) for consistency with 3channels
 
@@ -53,8 +53,8 @@ namespace rslf
     {
     private:
         static Depth1DParameters m_default_;
+        
     public:
-    
         Depth1DParameters() // initialize at default values
         {
             m_interpolation_class_ = new Interpolation1DLinear<DataType>();
@@ -68,6 +68,15 @@ namespace rslf
             m_median_filter_epsilon_ = _MEDIAN_FILTER_EPSILON;
             m_propagation_epsilon = _PROPAGATION_EPSILON;
             m_slope_factor = 1.0; // Useful when subsampling EPIs
+            
+            m_owner_classes = true;
+        }
+        
+        Depth1DParameters(const Depth1DParameters<DataType>& other)
+        {
+            Depth1DParameters<DataType>::operator=(other);
+            // Notify the non-ownership of the class pointers
+            m_owner_classes = false;
         }
 
         Interpolation1DClass<DataType>* m_interpolation_class_;
@@ -81,21 +90,14 @@ namespace rslf
         float m_propagation_epsilon;
         float m_slope_factor;
         
+        bool m_owner_classes = false;
+        
         ~Depth1DParameters() 
         {
-            if (m_interpolation_class_ != NULL)
+            if (m_owner_classes)
             {
-                std::cout << "deleting m_interpolation_class_" << std::endl;
                 delete m_interpolation_class_;
-                m_interpolation_class_ = NULL;
-                std::cout << "d ok" << std::endl;
-            }
-            if (m_kernel_class_ != NULL)
-            {
-                std::cout << "deleting m_kernel_class_" << std::endl;
                 delete m_kernel_class_;
-                m_kernel_class_ = NULL;
-                std::cout << "d ok" << std::endl;
             }
         }
         
@@ -166,8 +168,9 @@ namespace rslf
     template<typename DataType>
     void compute_1D_depth_epi(
         const Mat& m_epi_,
-        const Vec<float> m_d_list_,
-        const Mat& m_indices_,
+        const Mat& m_dmin_u_,
+        const Mat& m_dmax_u_,
+        int m_dim_d_,
         int m_s_hat_,
         const Mat& m_edge_confidence_u_,
         Mat& m_disp_confidence_u_,
@@ -196,7 +199,9 @@ namespace rslf
     template<typename DataType>
     void compute_1D_depth_epi_pile(
         const Vec<Mat>& m_epis_,
-        const Vec<float> m_d_list_,
+        const Mat& m_dmin_v_u_,
+        const Mat& m_dmax_v_u_,
+        int m_dim_d_,
         int m_s_hat_,
         const Mat& m_edge_confidence_v_u_,
         Mat& m_disp_confidence_v_u_,
@@ -226,7 +231,9 @@ namespace rslf
     template<typename DataType>
     void compute_2D_depth_epi(
         const Vec<Mat>& m_epis_,
-        const Vec<float> m_d_list_,
+        const Vec<Mat>& m_dmin_s_v_u_,
+        const Vec<Mat>& m_dmax_s_v_u_,
+        int m_dim_d_,
         //~ const Mat& m_indices_, // u + (s_hat - s) * d not fixed anymore since s_hat varies... but what about u + s_hat*d - s*d (could add s_hat * d) at the s_hat loop ; then m_indices_ = - s * d
         const Vec<Mat>& m_edge_confidence_s_v_u_,
         Vec<Mat>& m_disp_confidence_s_v_u_,
@@ -350,15 +357,15 @@ namespace rslf
         {
             im_norm.at<float>(u) = norm<DataType>(m_epi_.row(s).at<DataType>(u));
         }
-        
         m_edge_confidence_u_.setTo(0.0, im_norm < _SHADOW_NORMALIZED_LEVEL);
     }
     
     template<typename DataType>
     void compute_1D_depth_epi(
         const Mat& m_epi_,
-        const Vec<float> m_d_list_,
-        const Mat& m_indices_,
+        const Mat& m_dmin_u_,
+        const Mat& m_dmax_u_,
+        int m_dim_d_,
         int m_s_hat_,
         const Mat& m_edge_confidence_u_,
         Mat& m_disp_confidence_u_,
@@ -372,7 +379,6 @@ namespace rslf
         
         // Dimensions
         int m_dim_s_ = m_epi_.rows;
-        int m_dim_d_ = m_d_list_.size();
         int m_dim_u_ = m_epi_.cols;
         
         // Init score matrix
@@ -404,7 +410,23 @@ namespace rslf
              */
             // Matrix of indices corresponding to the lines of disparities d
             Mat I = m_buffer_.I;
-            cv::add(m_indices_, u, I);
+            
+            // Col matrix
+            Mat S = Mat(m_dim_s_, 1, CV_32FC1);
+            for (int s=0; s<m_dim_s_; s++)
+            {
+                S.at<float>(s) = m_s_hat_ - s;
+            }
+            
+            Mat D = Mat(1, m_dim_d_, CV_32FC1, cv::Scalar(1.0));
+            float dmin = m_dmin_u_.at<float>(u);
+            float dmax = m_dmax_u_.at<float>(u);
+            for (int d=0; d<m_dim_d_; d++)
+                D.at<float>(d) = dmin + d * (dmax - dmin) / (m_dim_d_-1);
+            
+            D *= m_parameters_.m_slope_factor;
+            I = S * D;
+            I += u;
             
             // Radiances
             Mat radiances_s_d = m_buffer_.radiances_s_d;
@@ -414,19 +436,6 @@ namespace rslf
             // TODO this step is costly
             Mat card_R = m_buffer_.card_R;
             m_parameters_.m_interpolation_class_->interpolate_mat(m_epi_, I, radiances_s_d, card_R);
-            
-            //~ // Indicator of non-nan values
-            //~ Vec<Mat> radiances_split;
-            //~ cv::split(radiances_s_d, radiances_split);
-            //~ Mat non_nan_indicator = radiances_split[0] == radiances_split[0];
-            
-            //~ // Compute number of non-nan radiances per column
-            //~ Mat card_R = m_buffer_.card_R;
-
-            //~ for (int d=0; d<m_dim_d_; d++)
-            //~ {
-                //~ card_R.at<float>(d) = cv::countNonZero(non_nan_indicator.col(d));
-            //~ }
             
             /*
              * Compute r_bar iteratively
@@ -503,12 +512,6 @@ namespace rslf
             
             // Copy the line to the scores
             sum_K_r_m_r_bar.copyTo(m_scores_u_d_.row(u));
-            //~ std::cout << r_bar << std::endl;
-            //~ r_bar.copyTo(m_rbar_u_);
-            
-            
-            //~ std::cout << m_rbar_u_ << std::endl;
-            //~ assert(false);
             
             /*
              * Get best d (max score)
@@ -519,7 +522,7 @@ namespace rslf
             cv::Point maxIdx;
             cv::minMaxLoc(m_scores_u_d_.row(u), &minVal, &maxVal, &minIdx, &maxIdx);
             
-            m_best_depth_u_.at<float>(u) = m_d_list_.at(maxIdx.x);
+            m_best_depth_u_.at<float>(u) = D.at<float>(maxIdx.x);
             
             // Compute depth confidence score
             m_disp_confidence_u_.at<float>(u) = m_edge_confidence_u_.at<float>(u) * std::abs(maxVal - cv::mean(m_scores_u_d_.row(u))[0]);
@@ -627,7 +630,9 @@ namespace rslf
     template<typename DataType>
     void compute_1D_depth_epi_pile(
         const Vec<Mat>& m_epis_,
-        const Vec<float> m_d_list_,
+        const Mat& m_dmin_v_u_,
+        const Mat& m_dmax_v_u_,
+        int m_dim_d_,
         int m_s_hat_,
         const Mat& m_edge_confidence_v_u_,
         Mat& m_disp_confidence_v_u_,
@@ -641,7 +646,6 @@ namespace rslf
     {
         // Dimension
         int m_dim_s_ = m_epis_[0].rows;
-        int m_dim_d_ = m_d_list_.size();
         int m_dim_v_ = m_epis_.size();
         int m_dim_u_ = m_epis_[0].cols;
         
@@ -649,20 +653,15 @@ namespace rslf
          * Build a matrix with indices corresponding to the lines of slope d and root s_hat
          */
         
-        // Row matrix
-        Vec<float> m_d_list_copy = m_d_list_;
-        Mat D = Mat(1, m_dim_d_, CV_32FC1, &m_d_list_copy.front());
         
-        // Col matrix
-        Mat S = Mat(m_dim_s_, 1, CV_32FC1);
-        for (int s=0; s<m_dim_s_; s++)
-        {
-            S.at<float>(s) = m_s_hat_ - s;
-        }
         
-        // Index matrix
-        Mat indices = S * D;
-        indices *= m_parameters_.m_slope_factor; // multiply by the slope factor
+        //~ // Col matrix
+        //~ Mat S = Mat(m_dim_s_, 1, CV_32FC1);
+        //~ for (int s=0; s<m_dim_s_; s++)
+        //~ {
+            //~ S.at<float>(s) = m_s_hat_ - s;
+        //~ }
+        
         
         // For progress bar
         float progress = 0.0;
@@ -672,7 +671,17 @@ namespace rslf
 #pragma omp parallel for
         for (int v=0; v<m_dim_v_; v++)
         {
+            //~ // Index matrix
+            //~ // Row matrix
+            //~ Mat U = m_d_list_v_d_u_[v]
+            //~ Mat indices;
+            //~ // Index matrix (base)
+            //~ Mat indices_base = S * U;
+            //~ indices *= m_parameters_.m_slope_factor; // multiply by the slope factor
+            
             // Create views
+            Mat m_dmin_u_ = m_dmin_v_u_.row(v);
+            Mat m_dmax_u_ = m_dmax_v_u_.row(v);
             Mat m_epi_ = m_epis_[v];
             Mat m_edge_confidence_u_ = m_edge_confidence_v_u_.row(v);
             Mat m_disp_confidence_u_ = m_disp_confidence_v_u_.row(v);
@@ -694,8 +703,9 @@ namespace rslf
             
             compute_1D_depth_epi(
                 m_epi_,
-                m_d_list_,
-                indices,
+                m_dmin_u_,
+                m_dmax_u_,
+                m_dim_d_,
                 m_s_hat_,
                 m_edge_confidence_u_,
                 m_disp_confidence_u_,
@@ -784,7 +794,9 @@ namespace rslf
     template<typename DataType>
     void compute_2D_depth_epi(
         const Vec<Mat>& m_epis_,
-        const Vec<float> m_d_list_,
+        const Vec<Mat>& m_dmin_s_v_u_,
+        const Vec<Mat>& m_dmax_s_v_u_,
+        int m_dim_d_,
         const Vec<Mat>& m_edge_confidence_s_v_u_,
         Vec<Mat>& m_disp_confidence_s_v_u_,
         Vec<Mat>& m_best_depth_s_v_u_,
@@ -795,7 +807,6 @@ namespace rslf
     )
     {
         int m_dim_s_ = m_epis_[0].rows;
-        int m_dim_d_ = m_d_list_.size();
         int m_dim_u_ = m_epis_[0].cols;
         int m_dim_v_ = m_epis_.size();
         int m_s_hat_ = (int)std::floor(m_dim_s_ / 2.0);
@@ -806,8 +817,9 @@ namespace rslf
         Vec<Mat> mask_s_v_u_ = Vec<Mat>(m_dim_s_);
         for (int s=0; s<m_dim_s_; s++)
             mask_s_v_u_[s] = m_edge_confidence_s_v_u_[s] > m_parameters_.m_edge_score_threshold_;
-
         
+        Mat m_dmin_v_u_;
+        Mat m_dmax_v_u_;
         Mat m_edge_confidence_v_u_;
         Mat m_disp_confidence_v_u_;
         Mat m_best_depth_v_u_;
@@ -833,6 +845,8 @@ namespace rslf
             if (m_verbose_)
                 std::cout << "Computing s_hat=" << s_hat << std::endl;
             
+            m_dmin_v_u_ = m_dmin_s_v_u_[s_hat];
+            m_dmax_v_u_ = m_dmax_s_v_u_[s_hat];
             m_edge_confidence_v_u_ = m_edge_confidence_s_v_u_[s_hat];
             m_disp_confidence_v_u_ = m_disp_confidence_s_v_u_[s_hat];
             m_best_depth_v_u_ = m_best_depth_s_v_u_[s_hat];
@@ -841,7 +855,9 @@ namespace rslf
 
             compute_1D_depth_epi_pile<DataType>(
                 m_epis_,
-                m_d_list_,
+                m_dmin_v_u_,
+                m_dmax_v_u_,
+                m_dim_d_,
                 s_hat,
                 m_edge_confidence_v_u_,
                 m_disp_confidence_v_u_,

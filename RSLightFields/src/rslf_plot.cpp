@@ -73,7 +73,7 @@ void rslf::ImageConverter_uchar::fit(const Mat& img)
     cv::meanStdDev(img, mean, std);
     //~ min = std::max(0.0, true_min);
     min = true_min;
-    max = std::min(mean[0] + 5 * std[0], true_max); 
+    max = std::min(mean[0] + 8 * std[0], true_max); 
     std::cout << "min=" << min << ", max=" << max << std::endl;
 }
 

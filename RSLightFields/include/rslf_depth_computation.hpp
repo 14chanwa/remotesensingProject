@@ -23,7 +23,9 @@ namespace rslf
         Depth1DComputer
         (
             const Mat& epi, 
-            const Vec<float>& d_list,
+            float dmin,
+            float dmax,
+            int dim_d,
             int s_hat = -1, // default s_hat will be s_max / 2,
             float epi_scale_factor = -1,
             const Depth1DParameters<DataType>& parameters = Depth1DParameters<DataType>::get_default()
@@ -34,7 +36,10 @@ namespace rslf
     
     private:
         Mat m_epi_;
-        const Vec<float>& m_d_list_;
+
+        int m_dim_d_;
+        Mat m_dmin_u_;
+        Mat m_dmax_u_;
         
         Mat m_edge_confidence_u_;
         Mat m_disp_confidence_u_;
@@ -66,7 +71,9 @@ namespace rslf
         Depth1DComputer_pile
         (
             const Vec<Mat>& epis, 
-            const Vec<float>& d_list,
+            float dmin,
+            float dmax,
+            int dim_d,
             int s_hat = -1, // default s_hat will be s_max / 2,
             float epi_scale_factor = -1,
             const Depth1DParameters<DataType>& parameters = Depth1DParameters<DataType>::get_default()
@@ -79,7 +86,10 @@ namespace rslf
     
     private:
         Vec<Mat> m_epis_;
-        const Vec<float>& m_d_list_;
+
+        int m_dim_d_;
+        Mat m_dmin_v_u_;
+        Mat m_dmax_v_u_;
         
         Mat m_edge_confidence_v_u_;
         Mat m_disp_confidence_v_u_;
@@ -111,7 +121,9 @@ namespace rslf
         Depth2DComputer
         (
             const Vec<Mat>& epis, 
-            const Vec<float>& d_list,
+            float dmin,
+            float dmax,
+            int dim_d,
             float epi_scale_factor = -1,
             const Depth1DParameters<DataType>& parameters = Depth1DParameters<DataType>::get_default(),
             bool verbose = true
@@ -131,8 +143,8 @@ namespace rslf
             Vec<Mat>* validity_maps = new Vec<Mat>();
             for (int s=0; s<m_edge_confidence_s_v_u_.size(); s++)
             {
-                int m_dim_v_ = m_edge_confidence_s_v_u_[0].rows;
-                int m_dim_u_ = m_edge_confidence_s_v_u_[0].cols;
+                //~ int m_dim_v_ = m_edge_confidence_s_v_u_[0].rows;
+                //~ int m_dim_u_ = m_edge_confidence_s_v_u_[0].cols;
                 
                 //~ // Get elementwise norm
                 //~ Mat im_norm = Mat(m_dim_v_, m_dim_u_, CV_32FC1);
@@ -153,7 +165,11 @@ namespace rslf
                         //~ thr2
                     //~ );
                 //~ validity_maps->push_back(tmp);
-                validity_maps->push_back(m_edge_confidence_s_v_u_[s] > m_parameters_.m_edge_score_threshold_);
+                if (!m_accept_all_)
+                    validity_maps->push_back(m_edge_confidence_s_v_u_[s] > m_parameters_.m_edge_score_threshold_);
+                else
+                    validity_maps->push_back(m_edge_confidence_s_v_u_[s] > -1);
+                //~ validity_maps->push_back((m_disp_confidence_s_v_u_[s] > m_parameters_.m_disp_score_threshold_));
             }
             return *validity_maps;
         }
@@ -162,15 +178,35 @@ namespace rslf
         {
             return m_epis_;
         }
+        
+        Vec<Mat>& edit_dmin()
+        {
+            return m_dmin_s_v_u_;
+        }
+        
+        Vec<Mat>& edit_dmax()
+        {
+            return m_dmax_s_v_u_;
+        }
+        
+        void set_accept_all(bool b)
+        {
+            m_accept_all_ = b;
+        }
     
     private:
         Vec<Mat> m_epis_;
-        const Vec<float>& m_d_list_;
+
+        int m_dim_d_;
+        Vec<Mat> m_dmin_s_v_u_;
+        Vec<Mat> m_dmax_s_v_u_;
         
         Vec<Mat> m_edge_confidence_s_v_u_;
         Vec<Mat> m_disp_confidence_s_v_u_;
         Vec<Mat> m_rbar_s_v_u_;
         Vec<Mat> m_best_depth_s_v_u_;
+        
+        bool m_accept_all_ = false;
         
         const Depth1DParameters<DataType>& m_parameters_;
         
@@ -195,12 +231,13 @@ namespace rslf
     Depth1DComputer<DataType>::Depth1DComputer
     (
         const Mat& epi, 
-        const Vec<float>& d_list,
+        float dmin,
+        float dmax,
+        int dim_d,
         int s_hat,
         float epi_scale_factor,
         const Depth1DParameters<DataType>& parameters
     ) : 
-        m_d_list_(d_list),
         m_parameters_(parameters)
     {
         // If the input epi is a uchar, scale uchar to 1.0
@@ -228,8 +265,12 @@ namespace rslf
         
         // Dimensions
         int m_dim_s_ = m_epi_.rows;
-        int m_dim_d_ = m_d_list_.size();
         int m_dim_u_ = m_epi_.cols;
+        
+        // d's
+        m_dim_d_ = dim_d;
+        m_dmin_u_ = Mat(1, m_dim_u_, CV_32FC1, cv::Scalar(dmin));
+        m_dmax_u_ = Mat(1, m_dim_u_, CV_32FC1, cv::Scalar(dmax));
         
         // s_hat
         if (s_hat < 0 || s_hat > m_dim_s_ - 1) 
@@ -261,28 +302,9 @@ namespace rslf
         // Dimension
         int m_dim_s_ = m_epi_.rows;
         int m_dim_u_ = m_epi_.cols;
-        int m_dim_d_ = m_d_list_.size();
         
         std::cout << "Max num of threads: " << omp_get_max_threads() << std::endl;
         //~ omp_set_nested(1);
-        
-        /*
-         * Build a matrix with indices corresponding to the lines of slope d and root s_hat
-         */
-        
-        // Row matrix
-        Vec<float> m_d_list_copy = m_d_list_;
-        Mat D = Mat(1, m_dim_d_, CV_32FC1, &m_d_list_copy.front());
-        
-        // Col matrix
-        Mat S = Mat(m_dim_s_, 1, CV_32FC1);
-        for (int s=0; s<m_dim_s_; s++)
-        {
-            S.at<float>(s) = m_s_hat_ - s;
-        }
-        
-        // Index matrix
-        Mat indices = S * D;
         
         // Empty mask -> no masked point
         Mat mask;
@@ -306,8 +328,9 @@ namespace rslf
         
         compute_1D_depth_epi<DataType>(
             m_epi_,
-            m_d_list_,
-            indices,
+            m_dmin_u_,
+            m_dmax_u_,
+            m_dim_d_,
             m_s_hat_,
             m_edge_confidence_u_,
             m_disp_confidence_u_,
@@ -375,12 +398,13 @@ namespace rslf
     Depth1DComputer_pile<DataType>::Depth1DComputer_pile
     (
         const Vec<Mat>& epis, 
-        const Vec<float>& d_list,
+        float dmin,
+        float dmax,
+        int dim_d,
         int s_hat,
         float epi_scale_factor,
         const Depth1DParameters<DataType>& parameters
     ) : 
-        m_d_list_(d_list),
         m_parameters_(parameters)
     {
         m_epis_ = Vec<Mat>(epis.size(), Mat(epis[0].rows, epis[0].cols, epis[0].type()));
@@ -426,9 +450,13 @@ namespace rslf
         
         // Dimensions
         int m_dim_s_ = m_epis_[0].rows;
-        int m_dim_d_ = m_d_list_.size();
         int m_dim_u_ = m_epis_[0].cols;
         int m_dim_v_ = m_epis_.size();
+        
+        // d's
+        m_dim_d_ = dim_d;
+        m_dmin_v_u_ = Mat(m_dim_v_, m_dim_u_, CV_32FC1, cv::Scalar(dmin));
+        m_dmax_v_u_ = Mat(m_dim_v_, m_dim_u_, CV_32FC1, cv::Scalar(dmax));
         
         // s_hat
         if (s_hat < 0 || s_hat > m_dim_s_ - 1) 
@@ -461,7 +489,6 @@ namespace rslf
 
         // Dimension
         int m_dim_s_ = m_epis_[0].rows;
-        int m_dim_d_ = m_d_list_.size();
         int m_dim_v_ = m_epis_.size();
         int m_dim_u_ = m_epis_[0].cols;
 
@@ -489,7 +516,9 @@ namespace rslf
 
         compute_1D_depth_epi_pile<DataType>(
             m_epis_,
-            m_d_list_,
+            m_dmin_v_u_,
+            m_dmax_v_u_,
+            m_dim_d_,
             m_s_hat_,
             m_edge_confidence_v_u_,
             m_disp_confidence_v_u_,
@@ -593,12 +622,13 @@ namespace rslf
     Depth2DComputer<DataType>::Depth2DComputer
     (
         const Vec<Mat>& epis, 
-        const Vec<float>& d_list,
+        float dmin,
+        float dmax,
+        int dim_d,
         float epi_scale_factor,
         const Depth1DParameters<DataType>& parameters,
         bool verbose
     ) : 
-        m_d_list_(d_list),
         m_parameters_(parameters),
         m_verbose_(verbose)
     {
@@ -645,9 +675,16 @@ namespace rslf
         
         // Dimensions
         int m_dim_s_ = m_epis_[0].rows;
-        int m_dim_d_ = m_d_list_.size();
         int m_dim_u_ = m_epis_[0].cols;
         int m_dim_v_ = m_epis_.size();
+        
+        // d's
+        m_dim_d_ = dim_d;
+        for (int s=0; s<m_dim_s_; s++)
+        {
+            m_dmin_s_v_u_.push_back(Mat(m_dim_v_, m_dim_u_, CV_32FC1, cv::Scalar(dmin)));
+            m_dmax_s_v_u_.push_back(Mat(m_dim_v_, m_dim_u_, CV_32FC1, cv::Scalar(dmax)));
+        }
         
         m_edge_confidence_s_v_u_ = Vec<Mat>(m_dim_s_);
         m_disp_confidence_s_v_u_ = Vec<Mat>(m_dim_s_);
@@ -668,7 +705,6 @@ namespace rslf
             // rbar
             m_rbar_s_v_u_[s] = cv::Mat::zeros(m_dim_v_, m_dim_u_, m_epis_[0].type());
         }
-        
     }
 
     template<typename DataType>
@@ -676,7 +712,6 @@ namespace rslf
     {
         // Dimension
         int m_dim_s_ = m_epis_[0].rows;
-        int m_dim_d_ = m_d_list_.size();
         int m_dim_v_ = m_epis_.size();
         int m_dim_u_ = m_epis_[0].cols;
 
@@ -708,7 +743,9 @@ namespace rslf
 
         compute_2D_depth_epi<DataType>(
             m_epis_,
-            m_d_list_,
+            m_dmin_s_v_u_,
+            m_dmax_s_v_u_,
+            m_dim_d_,
             m_edge_confidence_s_v_u_,
             m_disp_confidence_s_v_u_,
             m_best_depth_s_v_u_,

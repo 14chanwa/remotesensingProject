@@ -55,7 +55,9 @@ namespace rslf
         FineToCoarse
         (
             const Vec<Mat>& epis, 
-            const Vec<float>& d_list,
+            float d_min,
+            float d_max,
+            int dim_d,
             float epi_scale_factor = -1,
             const Depth1DParameters<DataType>& parameters = Depth1DParameters<DataType>::get_default()
         );
@@ -86,7 +88,9 @@ namespace rslf
     FineToCoarse<DataType>::FineToCoarse
     (
         const Vec<Mat>& epis, 
-        const Vec<float>& d_list,
+        float d_min,
+        float d_max,
+        int dim_d,
         float epi_scale_factor,
         const Depth1DParameters<DataType>& parameters
     )
@@ -104,13 +108,13 @@ namespace rslf
             
             std::cout << "Creating Depth2DComputer with sizes (" << m_dim_v_ << ", " << m_dim_u_ << ")" << std::endl;
             
-            Depth1DParameters<DataType>* new_parameters = new Depth1DParameters<DataType>();
-            *new_parameters = parameters;
+            Depth1DParameters<DataType>* new_parameters = new Depth1DParameters<DataType>(parameters);
+            
             // Compute scale factor
             new_parameters->m_slope_factor = (0.0 + m_dim_u_) / m_start_dim_u_;
             
             // Create a new Depth2DComputer
-            Depth2DComputer<DataType>* computer = new Depth2DComputer<DataType>(tmp_epis, d_list, epi_scale_factor, *new_parameters);
+            Depth2DComputer<DataType>* computer = new Depth2DComputer<DataType>(tmp_epis, d_min, d_max, dim_d, epi_scale_factor, *new_parameters);
             
             // Downsample
             Vec<Mat> downsampled_epis;
@@ -123,6 +127,9 @@ namespace rslf
             m_computers_.push_back(computer);
             m_parameter_instances_.push_back(new_parameters);
         }
+        
+        // The last level should accept all disparity measures
+        m_computers_.back()->set_accept_all(true);
     }
     
     template<typename DataType>
@@ -130,12 +137,8 @@ namespace rslf
     {
         for (int p=0; p<m_computers_.size(); p++)
         {
-            std::cout << "delete " << p << std::endl;
             delete m_computers_[p];
-            std::cout << "delete computer ok" << std::endl;
             delete m_parameter_instances_[p];
-            std::cout << "delete parameter ok" << std::endl;
-            std::cout << "ok" << std::endl;
         }
     }
     
@@ -145,6 +148,118 @@ namespace rslf
         for (int p=0; p<m_computers_.size(); p++)
         {
             m_computers_[p]->run();
+            if (p < m_computers_.size() - 1)
+            {
+                std::cout << "Setting new depth bounds..." << std::endl;
+                
+                // Depth map
+                Vec<Mat> depth_map_up = m_computers_[p]->get_depths_s_v_u_();
+                Vec<Mat> depth_map_down = m_computers_[p+1]->get_depths_s_v_u_();
+                // Validity mask
+                Vec<Mat> mask_up = m_computers_[p]->get_valid_depths_mask_s_v_u_();
+                Vec<Mat> mask_down = m_computers_[p+1]->get_valid_depths_mask_s_v_u_();
+                
+                // dmin map
+                Vec<Mat> dmin_map = m_computers_[p+1]->edit_dmin();
+                // dmax map
+                Vec<Mat> dmax_map = m_computers_[p+1]->edit_dmax();
+                
+                int m_dim_s_ = depth_map_up.size();
+                
+                int m_dim_v_up = depth_map_up[0].rows;
+                int m_dim_u_up = depth_map_up[0].cols;
+                
+                int m_dim_v_down = depth_map_down[0].rows;
+                int m_dim_u_down = depth_map_down[0].cols;
+                
+                // Edit the min/max d's
+#pragma omp parallel for
+                for (int s=0; s<m_dim_s_; s++)
+                {
+                    for (int v=0; v<m_dim_v_down; v++)
+                    {
+                        for (int u=0; u<m_dim_u_down; u++)
+                        {
+                            Vec<float> candidate_ds;
+                            // 1st line
+                            // Get the upscaled u, v
+                            int v_up = std::min(2 * v, m_dim_v_up - 1);
+                            int u_up = std::min(2 * u, m_dim_u_up - 1);
+                            // Get the point at the left
+                            int u_left = u_up;
+                            float d_left = nan_type<float>();
+                            while (u_left > 0)
+                            {
+                                u_left -= 1;
+                                if (mask_up[s].at<uchar>(v_up, u_left) > 0)
+                                {
+                                    d_left = depth_map_up[s].at<float>(v_up, u_left);
+                                    break;
+                                }
+                            }
+                            int u_right = u_up;
+                            float d_right = nan_type<float>();
+                            while (u_right > 0)
+                            {
+                                u_right += 1;
+                                if (mask_up[s].at<uchar>(v_up, u_right) > 0)
+                                {
+                                    d_right = depth_map_up[s].at<float>(v_up, u_right);
+                                    break;
+                                }
+                            }
+                            if (!is_nan_type<float>(d_left))
+                                candidate_ds.push_back(d_left);
+                            if (!is_nan_type<float>(d_right))
+                                candidate_ds.push_back(d_right);
+                            
+                            // 2nd line
+                            if (v_up+1 < m_dim_v_up)
+                            {
+                                // Get the upscaled u, v
+                                v_up += 1;
+                                int u_up = std::min(2 * u, m_dim_u_up - 1);
+                                // Get the point at the left
+                                int u_left = u_up;
+                                float d_left = nan_type<float>();
+                                while (u_left > 0)
+                                {
+                                    u_left -= 1;
+                                    if (mask_up[s].at<uchar>(v_up, u_left) > 0)
+                                    {
+                                        d_left = depth_map_up[s].at<float>(v_up, u_left);
+                                        break;
+                                    }
+                                }
+                                int u_right = u_up;
+                                float d_right = nan_type<float>();
+                                while (u_right > 0)
+                                {
+                                    u_right += 1;
+                                    if (mask_up[s].at<uchar>(v_up, u_right) > 0)
+                                    {
+                                        d_right = depth_map_up[s].at<float>(v_up, u_right);
+                                        break;
+                                    }
+                                }
+                                if (!is_nan_type<float>(d_left))
+                                    candidate_ds.push_back(d_left);
+                                if (!is_nan_type<float>(d_right))
+                                    candidate_ds.push_back(d_right);
+                            }
+                            if (candidate_ds.size() > 1)
+                            {
+                                std::sort(candidate_ds.begin(), candidate_ds.end());
+                                int nb_candidates = candidate_ds.size();
+                                int mid_idx = (int)std::floor((nb_candidates-1.0)/2);
+                                // Modify dmin and dmax
+                                dmin_map[s].at<float>(v, u) = candidate_ds[mid_idx];
+                                dmax_map[s].at<float>(v, u) = candidate_ds[mid_idx+1];
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     

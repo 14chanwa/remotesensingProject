@@ -32,17 +32,14 @@ int main(int argc, char* argv[])
     //~ rslf::plot_mat(epis[500], "EPI 500");
     //~ cv::waitKey();
     
-    std::vector<float> d_list;
     float d_min = -2.0;
     float d_max = 4.0;
-    float interval = 0.05;
-    for (int i=0; i<(d_max-d_min)/interval; i++)
-        d_list.push_back(d_min + interval * i);
+    int dim_d = 120;
     
-    std::cout << d_list.size() << " d values requested" << std::endl;
+    std::cout << dim_d << " d values requested" << std::endl;
     
-    rslf::FineToCoarse<float> fine_to_coarse(epis, d_list);
-    //~ rslf::FineToCoarse<cv::Vec3f> fine_to_coarse(epis, d_list);
+    rslf::FineToCoarse<float> fine_to_coarse(epis, d_min, d_max, dim_d);
+    //~ rslf::FineToCoarse<cv::Vec3f> fine_to_coarse(epis, d_min, d_max, dim_d);
     fine_to_coarse.run();
     
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();

@@ -424,8 +424,8 @@ namespace rslf
             for (int d=0; d<m_dim_d_; d++)
                 D.at<float>(d) = dmin + d * (dmax - dmin) / (m_dim_d_-1);
             
-            D *= m_parameters_.m_slope_factor;
             I = S * D;
+            I *= m_parameters_.m_slope_factor;
             I += u;
             
             // Radiances

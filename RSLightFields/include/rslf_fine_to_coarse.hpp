@@ -188,7 +188,7 @@ namespace rslf
                             // Get the point at the left
                             int u_left = u_up;
                             float d_left = nan_type<float>();
-                            while (u_left > 0)
+                            while (u_left > 1)
                             {
                                 u_left -= 1;
                                 if (mask_up[s].at<uchar>(v_up, u_left) > 0)
@@ -199,7 +199,7 @@ namespace rslf
                             }
                             int u_right = u_up;
                             float d_right = nan_type<float>();
-                            while (u_right > 0)
+                            while (u_right < m_dim_u_up-1)
                             {
                                 u_right += 1;
                                 if (mask_up[s].at<uchar>(v_up, u_right) > 0)
@@ -208,10 +208,16 @@ namespace rslf
                                     break;
                                 }
                             }
-                            if (!is_nan_type<float>(d_left))
+                            //~ if (!is_nan_type<float>(d_left) && !is_nan_type<float>(d_right))
+                            //~ {
+                                //~ dmin_map[s].at<float>(v, u) = std::min(d_left, d_right);
+                                //~ dmax_map[s].at<float>(v, u) = std::max(d_left, d_right);//candidate_ds[mid_idx+1];
+                            //~ }
+                            if (!is_nan_type<float>(d_left) && !is_nan_type<float>(d_right))
+                            {
                                 candidate_ds.push_back(d_left);
-                            if (!is_nan_type<float>(d_right))
                                 candidate_ds.push_back(d_right);
+                            }
                             
                             // 2nd line
                             if (v_up+1 < m_dim_v_up)
@@ -222,7 +228,7 @@ namespace rslf
                                 // Get the point at the left
                                 int u_left = u_up;
                                 float d_left = nan_type<float>();
-                                while (u_left > 0)
+                                while (u_left > 1)
                                 {
                                     u_left -= 1;
                                     if (mask_up[s].at<uchar>(v_up, u_left) > 0)
@@ -233,7 +239,7 @@ namespace rslf
                                 }
                                 int u_right = u_up;
                                 float d_right = nan_type<float>();
-                                while (u_right > 0)
+                                while (u_right < m_dim_u_up-1)
                                 {
                                     u_right += 1;
                                     if (mask_up[s].at<uchar>(v_up, u_right) > 0)
@@ -242,23 +248,26 @@ namespace rslf
                                         break;
                                     }
                                 }
-                                if (!is_nan_type<float>(d_left))
+                                if (!is_nan_type<float>(d_left) && !is_nan_type<float>(d_right))
+                                {
                                     candidate_ds.push_back(d_left);
-                                if (!is_nan_type<float>(d_right))
                                     candidate_ds.push_back(d_right);
+                                }
                             }
                             if (candidate_ds.size() > 1)
                             {
                                 std::sort(candidate_ds.begin(), candidate_ds.end());
                                 int nb_candidates = candidate_ds.size();
-                                int mid_idx = (int)std::floor((nb_candidates-1.0)/2);
+                                //int mid_idx = (int)std::floor((nb_candidates-1.0)/2);
                                 // Modify dmin and dmax
-                                dmin_map[s].at<float>(v, u) = candidate_ds[mid_idx];
-                                dmax_map[s].at<float>(v, u) = candidate_ds[mid_idx+1];
+                                dmin_map[s].at<float>(v, u) = candidate_ds[0];//candidate_ds[mid_idx];
+                                dmax_map[s].at<float>(v, u) = candidate_ds.back();//candidate_ds[mid_idx+1];
                             }
                         }
                     }
                 }
+                
+                //~ std::cout << dmax_map[50] << std::endl;
             }
         }
     }
@@ -372,6 +381,18 @@ namespace rslf
             
             image_converter.copy_and_scale(tmp, tmp);
             cv::applyColorMap(tmp, tmp, cv_colormap);
+            
+            // Get epi norm view
+            Mat epi_norm = Mat(m_dim_s_, m_dim_u_, CV_32FC1);
+            for (int s=0; s<m_dim_s_; s++)
+            {
+                for (int u=0; u<m_dim_u_; u++)
+                {
+                    Mat tmp = m_computers_[0]->get_epis()[v];
+                    epi_norm.at<float>(s, u) = norm<DataType>(tmp.at<DataType>(s, u));
+                }
+            }
+            tmp.setTo(0.0, epi_norm < _SHADOW_NORMALIZED_LEVEL);
             
             out_plot_epi_pyr_p_s_u_.push_back(tmp);
         }

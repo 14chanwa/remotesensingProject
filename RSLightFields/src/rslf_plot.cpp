@@ -66,14 +66,28 @@ cv::Mat rslf::copy_and_scale_uchar
 
 void rslf::ImageConverter_uchar::fit(const Mat& img)
 {
+    Mat reshaped_img = img.reshape(1, img.rows * img.cols);
+    std::cout << "reshaped_img.size()=" << reshaped_img.size() << std::endl;
+    Mat sorted_img;
+    cv::sort(reshaped_img, sorted_img, CV_SORT_EVERY_COLUMN + CV_SORT_ASCENDING);
+    
     // Find min and max values
-    double true_min, true_max;
-    cv::minMaxLoc(img, &true_min, &true_max);
-    cv::Scalar mean, std;
-    cv::meanStdDev(img, mean, std);
+    //~ double true_min, true_max;
+    //~ cv::minMaxLoc(img, &true_min, &true_max);
+    //~ cv::Scalar mean, std;
+    //~ cv::meanStdDev(img, mean, std);
     //~ min = std::max(0.0, true_min);
-    min = true_min;
-    max = std::min(mean[0] + 8 * std[0], true_max); 
+    //~ min = true_min;
+    //~ max = std::min(mean[0] + 12 * std[0], true_max); 
+    
+    // min=0.1% quantile
+    int idx_min = (int)std::floor(0.02 * reshaped_img.rows);
+    min = sorted_img.at<float>(idx_min);
+    // max=0.9 quantile
+    int idx_max = (int)std::floor(0.98 * reshaped_img.rows);
+    max = sorted_img.at<float>(idx_max);
+    
+    std::cout << "idx_min=" << idx_min << ", idx_max=" << idx_max << std::endl;
     std::cout << "min=" << min << ", max=" << max << std::endl;
 }
 

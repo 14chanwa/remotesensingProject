@@ -10,7 +10,7 @@
 //~ #define _RSLF_IO_DEBUG
 
 
-cv::Mat rslf::read_img_from_file
+rslf::Mat rslf::read_img_from_file
 (
     std::string path_to_folder, 
     std::string name_we,
@@ -18,7 +18,7 @@ cv::Mat rslf::read_img_from_file
     int cv_read_mode
 ) 
 {
-    cv::Mat img = cv::imread(path_to_folder + name_we + "." + extension, cv_read_mode);
+    Mat img = cv::imread(path_to_folder + name_we + "." + extension, cv_read_mode);
     if (img.empty())
         std::cout << ">>> rslf::read_img_from_file -- WARNING: Empty image: " <<
             path_to_folder + name_we + "." + extension +
@@ -30,7 +30,7 @@ cv::Mat rslf::read_img_from_file
     return img;
 }
 
-std::vector<cv::Mat> rslf::read_imgs_from_folder
+rslf::Vec<rslf::Mat> rslf::read_imgs_from_folder
 (
     std::string path_to_folder,
     std::string extension,
@@ -38,7 +38,7 @@ std::vector<cv::Mat> rslf::read_imgs_from_folder
 ) 
 {
     // Get all valid item names in directory
-    std::vector<std::string> list_files;
+    Vec<std::string> list_files;
     for (auto & p : std::experimental::filesystem::directory_iterator(path_to_folder)) 
     {
         std::string file_name = p.path().string();
@@ -54,13 +54,13 @@ std::vector<cv::Mat> rslf::read_imgs_from_folder
     std::sort(list_files.begin(), list_files.end());
     
     // Read items
-    std::vector<cv::Mat> imgs;
+    Vec<Mat> imgs;
     for (std::string current_name : list_files)
     {
 #ifdef _RSLF_IO_VERBOSE
         std::cout << "Read " << current_name << "." << extension << std::endl;
 #endif
-        cv::Mat img = read_img_from_file(path_to_folder, current_name, extension, cv_read_mode);
+        Mat img = read_img_from_file(path_to_folder, current_name, extension, cv_read_mode);
         imgs.push_back(img);
     }
     
@@ -69,7 +69,7 @@ std::vector<cv::Mat> rslf::read_imgs_from_folder
 
 void rslf::write_mat_to_yml
 (
-    cv::Mat img,
+    Mat img,
     std::string path_to_folder, 
     std::string name_we,
     std::string extension
@@ -85,11 +85,11 @@ void rslf::write_mat_to_yml
 
 void rslf::write_mat_to_imgfile
 (
-    cv::Mat img,
+    Mat img,
     std::string path_to_folder, 
     std::string name_we,
     std::string extension,
-    std::vector<int> compression_params
+    Vec<int> compression_params
 )
 {
 #ifdef _RSLF_IO_VERBOSE
@@ -98,7 +98,7 @@ void rslf::write_mat_to_imgfile
     cv::imwrite(path_to_folder + name_we + "." + extension, img);
 }
 
-cv::Mat rslf::read_mat_from_yml
+rslf::Mat rslf::read_mat_from_yml
 (
     std::string path_to_folder, 
     std::string name_we,
@@ -108,7 +108,7 @@ cv::Mat rslf::read_mat_from_yml
 #ifdef _RSLF_IO_VERBOSE
     std::cout << "Read " << path_to_folder + name_we + "." + extension << std::endl;
 #endif
-    cv::Mat img;
+    Mat img;
     cv::FileStorage storage(path_to_folder + name_we + "." + extension, cv::FileStorage::READ);
     storage.getFirstTopLevelNode() >> img;
     storage.release();

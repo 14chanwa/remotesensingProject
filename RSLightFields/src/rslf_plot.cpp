@@ -12,12 +12,12 @@
 
 void rslf::plot_mat
 (
-    cv::Mat img, 
+    Mat img, 
     std::string window_name
 )
 {
     // Copy and scale values
-    cv::Mat tmp = rslf::copy_and_scale_uchar(img);
+    Mat tmp = rslf::copy_and_scale_uchar(img);
     
     // Plot in window
     // Ratio
@@ -38,12 +38,12 @@ void rslf::plot_mat
     cv::imshow(window_name, tmp);
 }
 
-cv::Mat rslf::copy_and_scale_uchar
+rslf::Mat rslf::copy_and_scale_uchar
 (
-    cv::Mat img
+    Mat img
 )
 {
-    cv::Mat res;
+    Mat res;
     img.copyTo(res);
     // If the dtype is not a multiple of uchar
     if (img.type() % 8 != 0) {
@@ -99,9 +99,9 @@ void rslf::ImageConverter_uchar::copy_and_scale(const Mat& src, Mat& dst)
 }
 
 
-cv::Mat rslf::draw_red_lines
+rslf::Mat rslf::draw_red_lines
 (
-    cv::Mat img,
+    Mat img,
     int fill_row_red,
     int max_height,
     int fill_col_red,
@@ -109,7 +109,7 @@ cv::Mat rslf::draw_red_lines
 )
 {
     // Copy and scale values
-    cv::Mat res = rslf::copy_and_scale_uchar(img);
+    Mat res = rslf::copy_and_scale_uchar(img);
     
     if (fill_row_red < 0 && fill_col_red < 0)
         // Nothing to do
@@ -154,7 +154,7 @@ cv::Mat rslf::draw_red_lines
             last_row = res.rows - 1;
         
         // Get a copy of the image between first and last row
-        cv::Mat tmp;
+        Mat tmp;
         cv::Range ranges[2];
         ranges[0] = cv::Range(first_row, last_row); 
         ranges[1] = cv::Range::all();
@@ -179,7 +179,7 @@ cv::Mat rslf::draw_red_lines
             last_col = res.cols - 1;
         
         // Get a copy of the image between first and last row
-        cv::Mat tmp;
+        Mat tmp;
         cv::Range ranges[2];
         ranges[0] = cv::Range::all();
         ranges[0] = cv::Range(first_col, last_col); 

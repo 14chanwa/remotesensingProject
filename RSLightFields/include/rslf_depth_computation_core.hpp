@@ -43,881 +43,834 @@
 namespace rslf
 {
     
-    /*
-     * *****************************************************************
-     * Depth1DParameters
-     * *****************************************************************
-     */
-    template<typename DataType>
-    struct Depth1DParameters
+/*
+ * *****************************************************************
+ * Depth1DParameters
+ * *****************************************************************
+ */
+template<typename DataType>
+struct Depth1DParameters
+{
+private:
+    static Depth1DParameters s_default_;
+    bool m_owner_classes = false;
+    
+public:
+    Depth1DParameters() // initialize at default values
     {
-    private:
-        static Depth1DParameters m_default_;
+        par_interpolation_class = new Interpolation1DLinear<DataType>();
+        //~ par_interpolation_class = new Interpolation1DNearestNeighbour<DataType>();
+        par_kernel_class = new BandwidthKernel<DataType>(0.2);
         
-    public:
-        Depth1DParameters() // initialize at default values
-        {
-            m_interpolation_class_ = new Interpolation1DLinear<DataType>();
-            //~ m_interpolation_class_ = new Interpolation1DNearestNeighbour<DataType>();
-            m_kernel_class_ = new BandwidthKernel<DataType>(0.2);
-            m_edge_score_threshold_ = _EDGE_SCORE_THRESHOLD;
-            m_disp_score_threshold_ = _DISP_SCORE_THRESHOLD;
-            m_mean_shift_max_iter_ = _MEAN_SHIFT_MAX_ITER;
-            m_edge_confidence_filter_size_ = _EDGE_CONFIDENCE_FILTER_SIZE;
-            m_median_filter_size_ = _MEDIAN_FILTER_SIZE;
-            m_median_filter_epsilon_ = _MEDIAN_FILTER_EPSILON;
-            m_propagation_epsilon = _PROPAGATION_EPSILON;
-            m_slope_factor = 1.0; // Useful when subsampling EPIs
-            
-            m_owner_classes = true;
-        }
+        par_edge_score_threshold = _EDGE_SCORE_THRESHOLD;
+        par_disp_score_threshold = _DISP_SCORE_THRESHOLD;
+        par_mean_shift_max_iter = _MEAN_SHIFT_MAX_ITER;
+        par_edge_confidence_filter_size = _EDGE_CONFIDENCE_FILTER_SIZE;
+        par_median_filter_size = _MEDIAN_FILTER_SIZE;
+        par_median_filter_epsilon = _MEDIAN_FILTER_EPSILON;
+        par_propagation_epsilon = _PROPAGATION_EPSILON;
         
-        Depth1DParameters(const Depth1DParameters<DataType>& other)
-        {
-            Depth1DParameters<DataType>::operator=(other);
-            // Notify the non-ownership of the class pointers
-            m_owner_classes = false;
-        }
-
-        Interpolation1DClass<DataType>* m_interpolation_class_;
-        KernelClass<DataType>* m_kernel_class_;
-        float m_edge_score_threshold_;
-        float m_disp_score_threshold_;
-        float m_mean_shift_max_iter_;
-        int m_edge_confidence_filter_size_;
-        int m_median_filter_size_;
-        float m_median_filter_epsilon_;
-        float m_propagation_epsilon;
-        float m_slope_factor;
+        par_slope_factor = 1.0; // Useful when subsampling EPIs
         
-        bool m_owner_classes = false;
         
-        ~Depth1DParameters() 
-        {
-            if (m_owner_classes)
-            {
-                delete m_interpolation_class_;
-                delete m_kernel_class_;
-            }
-        }
-        
-        static Depth1DParameters& get_default() // get a static default instance
-        {
-            return m_default_;
-        }
-    };
-    
-    template<typename DataType>
-    Depth1DParameters<DataType> Depth1DParameters<DataType>::m_default_ = Depth1DParameters();
-
-    
-    /*
-     * *****************************************************************
-     * compute_1D_depth_epi
-     * *****************************************************************
-     */
-    template <typename DataType>
-    struct BufferDepth1D {
-        
-        BufferDepth1D
-        (
-            int m_dim_s_,
-            int m_dim_d_, 
-            int m_dim_u_, 
-            int data_type, 
-            const Depth1DParameters<DataType>& m_parameters_
-        )
-        {
-            filter_kernel = cv::Mat::zeros(1, m_parameters_.m_edge_confidence_filter_size_, CV_32FC1);
-            m_scores_u_d_ = Mat(m_dim_u_, m_dim_d_, CV_32FC1, cv::Scalar(0.0));
-            card_R = Mat(1, m_dim_d_, CV_32FC1);
-            radiances_s_d = cv::Mat::zeros(m_dim_s_, m_dim_d_, data_type);
-        }
-        
-        Mat thr_tmp;
-        Vec<cv::Point> locations;
-        
-        Mat m_scores_u_d_;
-        Mat filter_kernel;
-        Mat conv_tmp;
-        Mat sqsum_tmp;
-        Mat I;
-        Mat radiances_s_d;
-        Mat radiances_s_d_un_nanified;
-        Mat card_R;
-        Mat r_bar;
-        Mat r_m_r_bar;
-        Mat K_r_m_r_bar_mat;
-        Mat K_r_m_r_bar_mat_vec;
-        Mat r_K_r_m_r_bar_mat;
-        Mat sum_r_K_r_m_r_bar;
-        Mat sum_K_r_m_r_bar;
-        Mat sum_K_r_m_r_bar_vec;
-        Mat r_bar_broadcast;
-    };
-    
-    template<typename DataType>
-    void compute_1D_edge_confidence(
-        const Mat& m_epi_,
-        int s,
-        Mat& m_edge_confidence_u_,
-        const Depth1DParameters<DataType>& m_parameters_,
-        BufferDepth1D<DataType>& m_buffer_
-    );
-    
-    template<typename DataType>
-    void compute_1D_depth_epi(
-        const Mat& m_epi_,
-        const Mat& m_dmin_u_,
-        const Mat& m_dmax_u_,
-        int m_dim_d_,
-        int m_s_hat_,
-        const Mat& m_edge_confidence_u_,
-        Mat& m_disp_confidence_u_,
-        Mat& m_best_depth_u_,
-        Mat& m_rbar_u_,
-        const Depth1DParameters<DataType>& m_parameters_,
-        BufferDepth1D<DataType>& m_buffer_,
-        Mat& m_mask_u_
-    );
-    
-    /*
-     * *****************************************************************
-     * compute_1D_depth_epi_pile
-     * *****************************************************************
-     */
-    
-    template<typename DataType>
-    void compute_1D_edge_confidence_pile(
-        const Vec<Mat>& m_epis_,
-        int s,
-        Mat& m_edge_confidence_v_u_,
-        const Depth1DParameters<DataType>& m_parameters_,
-        Vec<BufferDepth1D<DataType>* >& m_buffers_
-    );
-    
-    template<typename DataType>
-    void compute_1D_depth_epi_pile(
-        const Vec<Mat>& m_epis_,
-        const Mat& m_dmin_v_u_,
-        const Mat& m_dmax_v_u_,
-        int m_dim_d_,
-        int m_s_hat_,
-        const Mat& m_edge_confidence_v_u_,
-        Mat& m_disp_confidence_v_u_,
-        Mat& m_best_depth_v_u_,
-        Mat& m_rbar_v_u_,
-        const Depth1DParameters<DataType>& m_parameters_,
-        Vec<BufferDepth1D<DataType>* >& m_buffers_,
-        Mat& m_mask_v_u_,
-        bool m_verbose_ = true
-    );
-    
-    
-    /*
-     * *****************************************************************
-     * compute_2D_depth_epi
-     * *****************************************************************
-     */
-    
-    template<typename DataType>
-    void compute_2D_edge_confidence(
-        const Vec<Mat>& m_epis_,
-        Vec<Mat>& m_edge_confidence_s_v_u_,
-        const Depth1DParameters<DataType>& m_parameters_,
-        Vec<BufferDepth1D<DataType>* >& m_buffers_
-    );
-    
-    template<typename DataType>
-    void compute_2D_depth_epi(
-        const Vec<Mat>& m_epis_,
-        const Vec<Mat>& m_dmin_s_v_u_,
-        const Vec<Mat>& m_dmax_s_v_u_,
-        int m_dim_d_,
-        //~ const Mat& m_indices_, // u + (s_hat - s) * d not fixed anymore since s_hat varies... but what about u + s_hat*d - s*d (could add s_hat * d) at the s_hat loop ; then m_indices_ = - s * d
-        const Vec<Mat>& m_edge_confidence_s_v_u_,
-        Vec<Mat>& m_disp_confidence_s_v_u_,
-        Vec<Mat>& m_best_depth_s_v_u_,
-        Vec<Mat>& m_rbar_s_v_u_,
-        const Depth1DParameters<DataType>& m_parameters_,
-        Vec<BufferDepth1D<DataType>* >& m_buffers_,
-        bool m_verbose_ = true
-    );
-    
-    
-    
-    /*
-     * *****************************************************************
-     * selective_median_filter
-     * *****************************************************************
-     */
-    
-    template<typename DataType>
-    void selective_median_filter(
-        const Mat& src,
-        Mat& dst,
-        const Vec<Mat>& epis,
-        int s_hat_,
-        int size,
-        const Mat& edge_scores,
-        float score_threshold,
-        float epsilon
-    );
-    
-    /*
-     * Useful template functions
-     */
-    
-    /**
-     * Sums the squares of the values across channels of the input matrix
-     * 
-     * @param src Input
-     * @param dst Output
-     * @param buffer Buffer matrix (CV_32FC1)
-     */
-    template<typename DataType>
-    void _square_sum_channels_into(const Mat& src, Mat& dst, Mat& buffer);
-    
-    /**
-     * Multiply a vec matrix by a line matrix elementwise broadcasting the line matrix over channels of the vec matrix.
-     * 
-     * @param line_mat Input
-     * @param vec_mat Input
-     * @param res_mat Output
-     * @param buffer Buffer matrix (CV_32FC3)
-     */
-    template<typename DataType>
-    void _multiply_multi_channel(const Mat& line_mat, const Mat& vec_mat, Mat& res_mat, Mat& buffer);
-    
-    /**
-     * Divide a vec matrix by a line matrix elementwise broadcasting the line matrix over channels of the vec matrix.
-     * 
-     * @param line_mat Input
-     * @param vec_mat Input
-     * @param res_mat Output
-     * @param buffer Buffer matrix (CV_32FC3)
-     */
-    template<typename DataType>
-    void _divide_multi_channel(const Mat& line_mat, const Mat& vec_mat, Mat& res_mat, Mat& buffer);
-    
-    
-    
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-
-    
-    
-    /*
-     * *****************************************************************
-     * IMPLEMENTATION
-     * compute_1D_depth_epi
-     * *****************************************************************
-     */
-    template<typename DataType>
-    void compute_1D_edge_confidence(
-        const Mat& m_epi_,
-        int s,
-        Mat& m_edge_confidence_u_,
-        const Depth1DParameters<DataType>& m_parameters_,
-        BufferDepth1D<DataType>& m_buffer_
-    )
-    {
-        /*
-         * Compute edge confidence
-         */
-        int filter_size = m_parameters_.m_edge_confidence_filter_size_;
-        int center_index = (filter_size -1) / 2;
-
-        // Get buffer variables
-        Mat kernel = m_buffer_.filter_kernel;
-        Mat tmp = m_buffer_.conv_tmp;
-        Mat tmp2 = m_buffer_.sqsum_tmp;
-        cv::Point tmp_param(-1,-1);
-        
-        for (int j=0; j<filter_size; j++)
-        {
-            if (j == center_index)
-                continue;
-            
-            // Make filter with 1 at 1, 1 and -1 at i, j
-            kernel.setTo(0.0);
-            kernel.at<float>(center_index) = 1.0;
-            kernel.at<float>(j) = -1.0;
-            cv::filter2D(m_epi_.row(s), tmp, -1, kernel, tmp_param, 0, cv::BORDER_CONSTANT);
-            
-            // Sum square values into edge confidence
-            _square_sum_channels_into<DataType>(tmp, m_edge_confidence_u_, tmp2);
-        }
-        
-        // TODO
-        // Dirty way to remove all dark pixels
-        // Get elementwise norm
-        Mat im_norm = Mat(1, m_edge_confidence_u_.cols, CV_32FC1);
-        for (int u=0; u<m_edge_confidence_u_.cols; u++)
-        {
-            im_norm.at<float>(u) = norm<DataType>(m_epi_.row(s).at<DataType>(u));
-        }
-        m_edge_confidence_u_.setTo(0.0, im_norm < _SHADOW_NORMALIZED_LEVEL);
     }
     
-    template<typename DataType>
-    void compute_1D_depth_epi(
-        const Mat& m_epi_,
-        const Mat& m_dmin_u_,
-        const Mat& m_dmax_u_,
-        int m_dim_d_,
-        int m_s_hat_,
-        const Mat& m_edge_confidence_u_,
-        Mat& m_disp_confidence_u_,
-        Mat& m_best_depth_u_,
-        Mat& m_rbar_u_,
-        const Depth1DParameters<DataType>& m_parameters_,
-        BufferDepth1D<DataType>& m_buffer_,
-        Mat& m_mask_u_
-    ) 
+    Depth1DParameters(const Depth1DParameters<DataType>& a_other)
     {
+        Depth1DParameters<DataType>::operator=(a_other);
+        // Notify the non-ownership of the class pointers
+        m_owner_classes = false;
+    }
+
+    Interpolation1DClass<DataType>* par_interpolation_class;
+    KernelClass<DataType>*          par_kernel_class;
+    
+    float   par_edge_score_threshold;
+    float   par_disp_score_threshold;
+    float   par_mean_shift_max_iter;
+    int     par_edge_confidence_filter_size;
+    int     par_median_filter_size;
+    float   par_median_filter_epsilon;
+    float   par_propagation_epsilon;
+    float   par_slope_factor;
+    
+    ~Depth1DParameters() 
+    {
+        if (m_owner_classes)
+        {
+            delete par_interpolation_class;
+            delete par_kernel_class;
+        }
+    }
+    
+    static Depth1DParameters& get_default() // get a static default instance
+    {
+        return s_default_;
+    }
+};
+
+template<typename DataType>
+Depth1DParameters<DataType> Depth1DParameters<DataType>::s_default_ = Depth1DParameters();
+
+
+/*
+ * *****************************************************************
+ * compute_1D_depth_epi
+ * *****************************************************************
+ */
+template <typename DataType>
+struct BufferDepth1D {
+    
+    BufferDepth1D
+    (
+        int a_dim_s,
+        int a_dim_d, 
+        int a_dim_u, 
+        int a_data_type, 
+        const Depth1DParameters<DataType>& a_parameters
+    )
+    {
+        buf_filter_kernel = cv::Mat::zeros(1, a_parameters.par_edge_confidence_filter_size, CV_32FC1);
+        buf_scores_u_d = Mat(a_dim_u, a_dim_d, CV_32FC1, cv::Scalar(0.0));
+
+        buf_S = Mat(a_dim_s, 1, CV_32FC1);
+        buf_D = Mat(1, a_dim_d, CV_32FC1);
+
+        buf_card_R = Mat(1, a_dim_d, CV_32FC1);
+        buf_radiances_s_d = cv::Mat::zeros(a_dim_s, a_dim_d, a_data_type);
+    }
+    
+    Mat             buf_thr_tmp;
+    Vec<cv::Point>  buf_locations;
+    
+    Mat             buf_scores_u_d;
+
+    Mat             buf_filter_kernel;
+    Mat             buf_conv_tmp;
+    Mat             buf_sqsum_tmp;
+
+    Mat             buf_I;
+    Mat             buf_S;
+    Mat             buf_D;
+
+    Mat             buf_radiances_s_d;
+    Mat             buf_radiances_s_d_un_nanified;
+    Mat             buf_card_R;
+
+    Mat             buf_r_bar;
+    Mat             buf_r_m_r_bar;
+    Mat             buf_K_r_m_r_bar_mat;
+    Mat             buf_K_r_m_r_bar_mat_vec;
+    Mat             buf_r_K_r_m_r_bar_mat;
+    Mat             buf_sum_r_K_r_m_r_bar;
+    Mat             buf_sum_K_r_m_r_bar;
+    Mat             buf_sum_K_r_m_r_bar_vec;
+    Mat             buf_r_bar_broadcast;
+};
+
+template<typename DataType>
+void compute_1D_edge_confidence(
+    const Mat&  a_epi,
+    int         a_s,
+    Mat&        a_edge_confidence_u,
+    const Depth1DParameters<DataType>&  a_parameters,
+    BufferDepth1D<DataType>&            a_buffer
+);
+
+template<typename DataType>
+void compute_1D_depth_epi(
+    const Mat&  a_epi,
+    const Mat&  a_dmin_u,
+    const Mat&  a_dmax_u,
+    int         a_dim_d,
+    int         a_s_hat,
+    const Mat&  a_edge_confidence_u,
+    Mat&        a_disp_confidence_u,
+    Mat&        a_best_depth_u,
+    Mat&        a_rbar_u,
+    const Depth1DParameters<DataType>&  a_parameters,
+    BufferDepth1D<DataType>&            a_buffer,
+    Mat&        a_mask_u
+);
+
+/*
+ * *****************************************************************
+ * compute_1D_depth_epi_pile
+ * *****************************************************************
+ */
+
+template<typename DataType>
+void compute_1D_edge_confidence_pile(
+    const Vec<Mat>& a_epis,
+    int             a_s,
+    Mat&            a_edge_confidence_v_u,
+    const Depth1DParameters<DataType>&  a_parameters,
+    Vec<BufferDepth1D<DataType>* >&     a_buffers
+);
+
+template<typename DataType>
+void compute_1D_depth_epi_pile(
+    const Vec<Mat>& a_epis,
+    const Mat&      a_dmin_v_u,
+    const Mat&      a_dmax_v_u,
+    int             a_dim_d,
+    int             a_s_hat,
+    const Mat&      a_edge_confidence_v_u,
+    Mat&            a_disp_confidence_v_u,
+    Mat&            a_best_depth_v_u,
+    Mat&            a_rbar_v_u,
+    const Depth1DParameters<DataType>&  a_parameters,
+    Vec<BufferDepth1D<DataType>* >&     a_buffers,
+    Mat&            a_mask_v_u,
+    bool            a_verbose = true
+);
+
+
+/*
+ * *****************************************************************
+ * compute_2D_depth_epi
+ * *****************************************************************
+ */
+
+template<typename DataType>
+void compute_2D_edge_confidence(
+    const Vec<Mat>& a_epis,
+    Vec<Mat>&       a_edge_confidence_s_v_u,
+    const Depth1DParameters<DataType>&  a_parameters,
+    Vec<BufferDepth1D<DataType>* >&     a_buffers
+);
+
+template<typename DataType>
+void compute_2D_depth_epi(
+    const Vec<Mat>&     a_epis,
+    const Vec<Mat>&     a_dmin_s_v_u,
+    const Vec<Mat>&     a_dmax_s_v_u,
+    int                 a_dim_d,
+    const Vec<Mat>&     a_edge_confidence_s_v_u,
+    Vec<Mat>&           a_disp_confidence_s_v_u,
+    Vec<Mat>&           a_best_depth_s_v_u,
+    Vec<Mat>&           a_rbar_s_v_u,
+    const Depth1DParameters<DataType>&  a_parameters,
+    Vec<BufferDepth1D<DataType>* >&     a_buffers,
+    bool                a_verbose = true
+);
+
+
+
+/*
+ * *****************************************************************
+ * selective_median_filter
+ * *****************************************************************
+ */
+
+template<typename DataType>
+void selective_median_filter(
+    const Mat&  a_src,
+    Mat&        a_dst,
+    const Vec<Mat>& a_epis,
+    int         a_s_hat,
+    int         a_size,
+    const Mat&  a_edge_scores,
+    float       a_score_threshold,
+    float       a_epsilon
+);
+
+/*
+ * Useful template functions
+ */
+
+/**
+ * Sums the squares of the values across channels of the input matrix
+ * 
+ * @param src Input
+ * @param dst Output
+ * @param buffer Buffer matrix (CV_32FC1)
+ */
+template<typename DataType>
+void _square_sum_channels_into(const Mat& src, Mat& dst, Mat& buffer);
+
+/**
+ * Multiply a vec matrix by a line matrix elementwise broadcasting the line matrix over channels of the vec matrix.
+ * 
+ * @param line_mat Input
+ * @param vec_mat Input
+ * @param res_mat Output
+ * @param buffer Buffer matrix (CV_32FC3)
+ */
+template<typename DataType>
+void _multiply_multi_channel(const Mat& line_mat, const Mat& vec_mat, Mat& res_mat, Mat& buffer);
+
+/**
+ * Divide a vec matrix by a line matrix elementwise broadcasting the line matrix over channels of the vec matrix.
+ * 
+ * @param line_mat Input
+ * @param vec_mat Input
+ * @param res_mat Output
+ * @param buffer Buffer matrix (CV_32FC3)
+ */
+template<typename DataType>
+void _divide_multi_channel(const Mat& line_mat, const Mat& vec_mat, Mat& res_mat, Mat& buffer);
+
+
+
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+
+
+
+/*
+ * *****************************************************************
+ * IMPLEMENTATION
+ * compute_1D_depth_epi
+ * *****************************************************************
+ */
+template<typename DataType>
+void compute_1D_edge_confidence(
+    const Mat&  a_epi,
+    int         a_s,
+    Mat&        a_edge_confidence_u,
+    const Depth1DParameters<DataType>&  a_parameters,
+    BufferDepth1D<DataType>&            a_buffer
+)
+{
+    /*
+     * Compute edge confidence
+     */
+    int filter_size = a_parameters.par_edge_confidence_filter_size;
+    int center_index = (filter_size -1) / 2;
+
+    // Get buffer variables
+    Mat kernel = a_buffer.buf_filter_kernel;
+    Mat tmp = a_buffer.buf_conv_tmp;
+    Mat tmp2 = a_buffer.buf_sqsum_tmp;
+    
+    cv::Point tmp_param(-1,-1);
+    
+    for (int j=0; j<filter_size; j++)
+    {
+        if (j == center_index)
+            continue;
         
-        // Dimensions
-        int m_dim_s_ = m_epi_.rows;
-        int m_dim_u_ = m_epi_.cols;
+        // Make filter with 1 at 1, 1 and -1 at i, j
+        kernel.setTo(0.0);
+        kernel.at<float>(center_index) = 1.0;
+        kernel.at<float>(j) = -1.0;
+        cv::filter2D(a_epi.row(a_s), tmp, -1, kernel, tmp_param, 0, cv::BORDER_CONSTANT);
         
-        // Init score matrix
-        Mat m_scores_u_d_ = m_buffer_.m_scores_u_d_;
+        // Sum square values into edge confidence
+        _square_sum_channels_into<DataType>(tmp, a_edge_confidence_u, tmp2);
+    }
+    
+    // TODO
+    // Dirty way to remove all dark pixels
+    // Get elementwise norm
+    Mat im_norm = Mat(1, a_edge_confidence_u.cols, CV_32FC1);
+    for (int u=0; u<a_edge_confidence_u.cols; u++)
+    {
+        im_norm.at<float>(u) = norm<DataType>(a_epi.row(a_s).at<DataType>(u));
+    }
+    a_edge_confidence_u.setTo(0.0, im_norm < _SHADOW_NORMALIZED_LEVEL);
+}
+
+template<typename DataType>
+void compute_1D_depth_epi(
+    const Mat&  a_epi,
+    const Mat&  a_dmin_u,
+    const Mat&  a_dmax_u,
+    int         a_dim_d,
+    int         a_s_hat,
+    const Mat&  a_edge_confidence_u,
+    Mat&        a_disp_confidence_u,
+    Mat&        a_best_depth_u,
+    Mat&        a_rbar_u,
+    const Depth1DParameters<DataType>&  a_parameters,
+    BufferDepth1D<DataType>&            a_buffer,
+    Mat&        a_mask_u
+) 
+{
+    
+    // Dimensions
+    int dim_s = a_epi.rows;
+    
+    // Init score matrix
+    Mat scores_u_d = a_buffer.buf_scores_u_d;
+    
+    /*
+     * Iterate over all columns of the EPI
+     */
+    
+    // Get indices u to compute
+    // Do not compute low-confidence values or value masked
+    Mat thr_tmp = a_buffer.buf_thr_tmp;
+    thr_tmp = a_edge_confidence_u > a_parameters.par_edge_score_threshold;
+    if (!a_mask_u.empty())
+        cv::bitwise_and(thr_tmp, a_mask_u, a_mask_u);
+    else
+        a_mask_u = thr_tmp;
+    
+    Vec<cv::Point> locations = a_buffer.buf_locations;
+    cv::findNonZero(a_mask_u, locations);
+    
+    for (auto it = locations.begin(); it<locations.end(); it++)
+    {
+        int u = (*it).x;
         
         /*
-         * Iterate over all columns of the EPI
+         * Fill radiances
          */
+        // Matrix of indices corresponding to the lines of disparities d
+        Mat I = a_buffer.buf_I;
+        Mat S = a_buffer.buf_S;
+        Mat D = a_buffer.buf_D;
         
-        // Get indices u to compute
-        // Do not compute low-confidence values or value masked
-        Mat thr_tmp = m_buffer_.thr_tmp;
-        thr_tmp = m_edge_confidence_u_ > m_parameters_.m_edge_score_threshold_;
-        if (!m_mask_u_.empty())
-            cv::bitwise_and(thr_tmp, m_mask_u_, m_mask_u_);
-        else
-            m_mask_u_ = thr_tmp;
-        
-        Vec<cv::Point> locations = m_buffer_.locations;
-        cv::findNonZero(m_mask_u_, locations);
-        
-//~ #pragma omp parallel for
-        for (auto it = locations.begin(); it<locations.end(); it++)
+        // Col matrix
+        for (int s=0; s<dim_s; s++)
         {
-            int u = (*it).x;
+            S.at<float>(s) = a_s_hat - s;
+        }
+        
+        float dmin = a_dmin_u.at<float>(u);
+        float dmax = a_dmax_u.at<float>(u);
+        for (int d=0; d<a_dim_d; d++)
+            D.at<float>(d) = dmin + d * (dmax - dmin) / (a_dim_d-1);
+        
+        I = S * D;
+        I *= a_parameters.par_slope_factor;
+        I += u;
+        
+        // Radiances
+        Mat radiances_s_d       = a_buffer.buf_radiances_s_d;
+        Mat radiances_s_d_un_nanified = a_buffer.buf_radiances_s_d_un_nanified;
+        
+        // Interpolate
+        // TODO this step is costly
+        Mat card_R              = a_buffer.buf_card_R;
+        a_parameters.par_interpolation_class->interpolate_mat(a_epi, I, radiances_s_d, card_R);
+        
+        /*
+         * Compute r_bar iteratively
+         */
+        Mat r_bar               = a_buffer.buf_r_bar;
+        Mat r_m_r_bar           = a_buffer.buf_r_m_r_bar;
+        Mat K_r_m_r_bar_mat     = a_buffer.buf_K_r_m_r_bar_mat;
+        Mat K_r_m_r_bar_mat_vec = a_buffer.buf_K_r_m_r_bar_mat_vec;
+        Mat r_K_r_m_r_bar_mat   = a_buffer.buf_r_K_r_m_r_bar_mat;
+        Mat sum_r_K_r_m_r_bar   = a_buffer.buf_sum_r_K_r_m_r_bar;
+        Mat sum_K_r_m_r_bar     = a_buffer.buf_sum_K_r_m_r_bar;
+        Mat sum_K_r_m_r_bar_vec = a_buffer.buf_sum_K_r_m_r_bar_vec;
+        Mat r_bar_broadcast     = a_buffer.buf_r_bar_broadcast;
+        
+        // Initialize r_bar to the values in s_hat
+        radiances_s_d.row(a_s_hat).copyTo(r_bar);
+        
+        // Replace nans with zeros (since these will be multiplied by zero anyway)
+        cv::max(radiances_s_d, cv::Scalar(0.0), radiances_s_d_un_nanified);
+        
+        // Perform a partial mean shift to compute r_bar
+        // TODO: This step is costly
+        for (int i=0; i< a_parameters.par_mean_shift_max_iter; i++)
+        {
+            // r_bar repeated over lines 
+            cv::repeat(r_bar, dim_s, 1, r_bar_broadcast); 
             
-            /*
-             * Fill radiances
-             */
-            // Matrix of indices corresponding to the lines of disparities d
-            Mat I = m_buffer_.I;
+            // r - r_bar
+            // This matrix contains nans
+            cv::subtract(radiances_s_d, r_bar_broadcast, r_m_r_bar);
             
-            // Col matrix
-            Mat S = Mat(m_dim_s_, 1, CV_32FC1);
-            for (int s=0; s<m_dim_s_; s++)
-            {
-                S.at<float>(s) = m_s_hat_ - s;
-            }
+            // K(r - r_bar)
+            // Kernel fuction returns 0 if value is nan
+            a_parameters.par_kernel_class->evaluate_mat(r_m_r_bar, K_r_m_r_bar_mat); 
             
-            Mat D = Mat(1, m_dim_d_, CV_32FC1, cv::Scalar(1.0));
-            float dmin = m_dmin_u_.at<float>(u);
-            float dmax = m_dmax_u_.at<float>(u);
-            for (int d=0; d<m_dim_d_; d++)
-                D.at<float>(d) = dmin + d * (dmax - dmin) / (m_dim_d_-1);
+            // r * K(r - r_bar)
+            // Multiply should be of the same number of channels
+            _multiply_multi_channel<DataType>(K_r_m_r_bar_mat, radiances_s_d_un_nanified, r_K_r_m_r_bar_mat, K_r_m_r_bar_mat_vec);
             
-            I = S * D;
-            I *= m_parameters_.m_slope_factor;
-            I += u;
-            
-            // Radiances
-            Mat radiances_s_d = m_buffer_.radiances_s_d;
-            Mat radiances_s_d_un_nanified = m_buffer_.radiances_s_d_un_nanified;
-            
-            // Interpolate
-            // TODO this step is costly
-            Mat card_R = m_buffer_.card_R;
-            m_parameters_.m_interpolation_class_->interpolate_mat(m_epi_, I, radiances_s_d, card_R);
-            
-            /*
-             * Compute r_bar iteratively
-             */
-            Mat r_bar = m_buffer_.r_bar;
-            Mat r_m_r_bar = m_buffer_.r_m_r_bar;
-            Mat K_r_m_r_bar_mat = m_buffer_.K_r_m_r_bar_mat;
-            Mat K_r_m_r_bar_mat_vec = m_buffer_.K_r_m_r_bar_mat_vec;
-            
-            Mat r_K_r_m_r_bar_mat = m_buffer_.r_K_r_m_r_bar_mat;
-            
-            Mat sum_r_K_r_m_r_bar = m_buffer_.sum_r_K_r_m_r_bar;
-            
-            Mat sum_K_r_m_r_bar = m_buffer_.sum_K_r_m_r_bar;
-            Mat sum_K_r_m_r_bar_vec = m_buffer_.sum_K_r_m_r_bar_vec;
-            
-            Mat r_bar_broadcast = m_buffer_.r_bar_broadcast;
-            
-            // Initialize r_bar to the values in s_hat
-            radiances_s_d.row(m_s_hat_).copyTo(r_bar);
-            
-            // Replace nans with zeros (since these will be multiplied by zero anyway)
-            cv::max(radiances_s_d, cv::Scalar(0.0), radiances_s_d_un_nanified);
-            
-            // Perform a partial mean shift to compute r_bar
-            // TODO: This step is costly
-            for (int i=0; i< m_parameters_.m_mean_shift_max_iter_; i++)
-            {
-                // r_bar repeated over lines 
-                cv::repeat(r_bar, m_dim_s_, 1, r_bar_broadcast); 
-                
-                // r - r_bar
-                // This matrix contains nans
-                cv::subtract(radiances_s_d, r_bar_broadcast, r_m_r_bar);
-                
-                // K(r - r_bar)
-                // Kernel fuction returns 0 if value is nan
-                m_parameters_.m_kernel_class_->evaluate_mat(r_m_r_bar, K_r_m_r_bar_mat); 
-                
-                // r * K(r - r_bar)
-                // Multiply should be of the same number of channels
-                _multiply_multi_channel<DataType>(K_r_m_r_bar_mat, radiances_s_d_un_nanified, r_K_r_m_r_bar_mat, K_r_m_r_bar_mat_vec);
-                
-                //~ std::cout << radiances_s_d_un_nanified << std::endl;
-                
-                // Sum over lines
-                cv::reduce(r_K_r_m_r_bar_mat, sum_r_K_r_m_r_bar, 0, cv::REDUCE_SUM);
-                cv::reduce(K_r_m_r_bar_mat, sum_K_r_m_r_bar, 0, cv::REDUCE_SUM);
-                
-                //~ std::cout << sum_K_r_m_r_bar << std::endl;
-                //~ std::cout << sum_r_K_r_m_r_bar << std::endl;
-                
-                // Divide should be of the same number of channels
-                _divide_multi_channel<DataType>(sum_K_r_m_r_bar, sum_r_K_r_m_r_bar, r_bar, sum_K_r_m_r_bar_vec);
-                
-                // Set nans to zero
-                cv::max(r_bar, cv::Scalar(0.0), r_bar);
-                
-                //~ std::cout << r_bar << std::endl;
-                //~ assert(false);
-            }
-
-            /*
-             * Compute scores 
-             */
-            // Get the last sum { K(r - r_bar) }
-            m_parameters_.m_kernel_class_->evaluate_mat(r_m_r_bar, K_r_m_r_bar_mat);
+            // Sum over lines
+            cv::reduce(r_K_r_m_r_bar_mat, sum_r_K_r_m_r_bar, 0, cv::REDUCE_SUM);
             cv::reduce(K_r_m_r_bar_mat, sum_K_r_m_r_bar, 0, cv::REDUCE_SUM);
             
-            // Get score
-            cv::divide(sum_K_r_m_r_bar, card_R, sum_K_r_m_r_bar);
+            // Divide should be of the same number of channels
+            _divide_multi_channel<DataType>(sum_K_r_m_r_bar, sum_r_K_r_m_r_bar, r_bar, sum_K_r_m_r_bar_vec);
+            
             // Set nans to zero
-            cv::max(sum_K_r_m_r_bar, cv::Scalar(0.0), sum_K_r_m_r_bar);
-            
-            // Copy the line to the scores
-            sum_K_r_m_r_bar.copyTo(m_scores_u_d_.row(u));
-            
-            /*
-             * Get best d (max score)
-             */
-            double minVal;
-            double maxVal;
-            cv::Point minIdx;
-            cv::Point maxIdx;
-            cv::minMaxLoc(m_scores_u_d_.row(u), &minVal, &maxVal, &minIdx, &maxIdx);
-            
-            m_best_depth_u_.at<float>(u) = D.at<float>(maxIdx.x);
-            
-            // Compute depth confidence score
-            m_disp_confidence_u_.at<float>(u) = m_edge_confidence_u_.at<float>(u) * std::abs(maxVal - cv::mean(m_scores_u_d_.row(u))[0]);
-            
-            // Get final r_bar
-            m_rbar_u_.at<DataType>(u) = r_bar.at<DataType>(maxIdx.x);
-            
+            cv::max(r_bar, cv::Scalar(0.0), r_bar);
         }
+
+        /*
+         * Compute scores 
+         */
+        // Get the last sum { K(r - r_bar) }
+        a_parameters.par_kernel_class->evaluate_mat(r_m_r_bar, K_r_m_r_bar_mat);
+        cv::reduce(K_r_m_r_bar_mat, sum_K_r_m_r_bar, 0, cv::REDUCE_SUM);
         
-    }
-    
-    template<typename DataType>
-    void selective_median_filter(
-        const Mat& src,
-        Mat& dst,
-        const Vec<Mat>& epis,
-        int s_hat_,
-        int size,
-        const Mat& edge_scores,
-        float score_threshold,
-        float epsilon
-    )
-    {
-        int m_dim_v_ = src.rows;
-        int m_dim_u_ = src.cols;
+        // Get score
+        cv::divide(sum_K_r_m_r_bar, card_R, sum_K_r_m_r_bar);
+        // Set nans to zero
+        cv::max(sum_K_r_m_r_bar, cv::Scalar(0.0), sum_K_r_m_r_bar);
         
-        // Allocate matrix if not allocated yet
-        if (dst.empty() || dst.size != src.size || dst.type() != src.type())
-            dst = Mat(m_dim_v_, m_dim_u_, src.type(), cv::Scalar(0.0));
-        
-        int thr_max = omp_get_max_threads();
-        Vec<Vec<float> > value_buffers;
-        for (int t=0; t<thr_max; t++)
-            value_buffers.push_back(Vec<float>());
-        
-        int width = (size-1)/2;
-        
-#pragma omp parallel for
-        for (int v=0; v<m_dim_v_; v++)
-        {
-            Vec<float> buffer = value_buffers[omp_get_thread_num()];
-            for (int u=0; u<m_dim_u_; u++)
-            {
-                // If mask is null, skip
-                if (edge_scores.at<float>(v, u) > score_threshold)
-                {
-                    buffer.clear();
-                    for (int k=std::max(0, v-width); k<std::min(m_dim_v_, v+width+1); k++)
-                    {
-                        for (int l=std::max(0, u-width); l<std::min(m_dim_u_, u+width+1); l++)
-                        {
-                            if (edge_scores.at<float>(k, l) > score_threshold && 
-                                norm(
-                                    epis[v].at<DataType>(s_hat_, u) - 
-                                    epis[k].at<DataType>(s_hat_, l)
-                                    ) < epsilon)
-                            {
-                                buffer.push_back(src.at<float>(k, l));
-                            }
-                        }
-                    }
-                    // Compute the median
-                    std::nth_element(buffer.begin(), buffer.begin() + buffer.size() / 2, buffer.end());
-                    dst.at<float>(v, u) = buffer[buffer.size() / 2];
-                }
-            }
-        }
-    }
-    
-    
-    /*
-     * *****************************************************************
-     * IMPLEMENTATION
-     * compute_1D_depth_epi_pile
-     * *****************************************************************
-     */
-    
-    template<typename DataType>
-    void compute_1D_edge_confidence_pile(
-        const Vec<Mat>& m_epis_,
-        int s,
-        Mat& m_edge_confidence_v_u_,
-        const Depth1DParameters<DataType>& m_parameters_,
-        Vec<BufferDepth1D<DataType>* >& m_buffers_
-    )
-    {
-        int m_v_dim_ = m_epis_.size();
-        
-        // Compute edge confidence for all rows
-#pragma omp parallel for
-        for (int v=0; v<m_v_dim_; v++)
-        {
-            Mat m_edge_confidence_u_ = m_edge_confidence_v_u_.row(v);
-            
-            compute_1D_edge_confidence<DataType>(
-                m_epis_[v], 
-                s, 
-                m_edge_confidence_u_, 
-                m_parameters_, 
-                *m_buffers_[omp_get_thread_num()]
-            );
-        }
-    }
-    
-    template<typename DataType>
-    void compute_1D_depth_epi_pile(
-        const Vec<Mat>& m_epis_,
-        const Mat& m_dmin_v_u_,
-        const Mat& m_dmax_v_u_,
-        int m_dim_d_,
-        int m_s_hat_,
-        const Mat& m_edge_confidence_v_u_,
-        Mat& m_disp_confidence_v_u_,
-        Mat& m_best_depth_v_u_,
-        Mat& m_rbar_v_u_,
-        const Depth1DParameters<DataType>& m_parameters_,
-        Vec<BufferDepth1D<DataType>* >& m_buffers_,
-        Mat& m_mask_v_u_,
-        bool m_verbose_
-    )
-    {
-        // Dimension
-        int m_dim_s_ = m_epis_[0].rows;
-        int m_dim_v_ = m_epis_.size();
-        int m_dim_u_ = m_epis_[0].cols;
+        // Copy the line to the scores
+        sum_K_r_m_r_bar.copyTo(scores_u_d.row(u));
         
         /*
-         * Build a matrix with indices corresponding to the lines of slope d and root s_hat
+         * Get best d (max score)
          */
+        double minVal;
+        double maxVal;
+        cv::Point minIdx;
+        cv::Point maxIdx;
+        cv::minMaxLoc(scores_u_d.row(u), &minVal, &maxVal, &minIdx, &maxIdx);
         
+        a_best_depth_u.at<float>(u) = D.at<float>(maxIdx.x);
         
+        // Compute depth confidence score
+        a_disp_confidence_u.at<float>(u) = a_edge_confidence_u.at<float>(u) * std::abs(maxVal - cv::mean(scores_u_d.row(u))[0]);
         
-        //~ // Col matrix
-        //~ Mat S = Mat(m_dim_s_, 1, CV_32FC1);
-        //~ for (int s=0; s<m_dim_s_; s++)
-        //~ {
-            //~ S.at<float>(s) = m_s_hat_ - s;
-        //~ }
+        // Get final r_bar
+        a_rbar_u.at<DataType>(u) = r_bar.at<DataType>(maxIdx.x);
         
-        
-        // For progress bar
-        float progress = 0.0;
-        int barWidth = 40;
-        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-        
-#pragma omp parallel for
-        for (int v=0; v<m_dim_v_; v++)
-        {
-            //~ // Index matrix
-            //~ // Row matrix
-            //~ Mat U = m_d_list_v_d_u_[v]
-            //~ Mat indices;
-            //~ // Index matrix (base)
-            //~ Mat indices_base = S * U;
-            //~ indices *= m_parameters_.m_slope_factor; // multiply by the slope factor
-            
-            // Create views
-            Mat m_dmin_u_ = m_dmin_v_u_.row(v);
-            Mat m_dmax_u_ = m_dmax_v_u_.row(v);
-            Mat m_epi_ = m_epis_[v];
-            Mat m_edge_confidence_u_ = m_edge_confidence_v_u_.row(v);
-            Mat m_disp_confidence_u_ = m_disp_confidence_v_u_.row(v);
-            Mat m_best_depth_u_ = m_best_depth_v_u_.row(v);
-            Mat m_rbar_u_ = m_rbar_v_u_.row(v);
-            
-            // Empty mask -> no masked point
-            Mat mask;
-            if (!m_mask_v_u_.empty())
-                mask = m_mask_v_u_.row(v);
-            
-            //~ compute_1D_edge_confidence(
-                //~ m_epi_,
-                //~ m_s_hat_,
-                //~ m_edge_confidence_u_,
-                //~ m_parameters_,
-                //~ *buffer[omp_get_thread_num()]
-            //~ );
-            
-            compute_1D_depth_epi(
-                m_epi_,
-                m_dmin_u_,
-                m_dmax_u_,
-                m_dim_d_,
-                m_s_hat_,
-                m_edge_confidence_u_,
-                m_disp_confidence_u_,
-                m_best_depth_u_,
-                m_rbar_u_,
-                m_parameters_,
-                *m_buffers_[omp_get_thread_num()],
-                mask
-            );
-            
-            //~ std::cout << rslf::type2str(m_rbar_u_.type()) << std::endl;
-            //~ std::cout << m_rbar_u_.size << std::endl;
-            //~ std::cout << m_rbar_u_ << std::endl;
-            
-            if (m_verbose_)
-            {
-#pragma omp critical
-{
-                // Display progress bar
-                std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-                std::cout << "[";
-                int pos = barWidth * progress / m_dim_v_;
-                for (int i = 0; i < barWidth; ++i) {
-                    if (i < pos) std::cout << "=";
-                    else if (i == pos) std::cout << ">";
-                    else std::cout << " ";
-                }
-                std::cout << "] " << int(progress * 100.0 / m_dim_v_) << "% \t" << std::chrono::duration_cast<std::chrono::seconds>( t2 - t1 ).count() << "s \r";
-                std::cout.flush();
-}
-#pragma omp atomic
-               progress += 1.0;
-            }
-        }
-        
-        // Apply median filter
-        if (m_verbose_)
-            std::cout << std::endl << "Applying selective median fiter" << std::endl;
-        
-        Mat tmp;
-        selective_median_filter<DataType>(
-            m_best_depth_v_u_, 
-            tmp,
-            m_epis_,
-            m_s_hat_,
-            m_parameters_.m_median_filter_size_, 
-            m_edge_confidence_v_u_, 
-            m_parameters_.m_edge_score_threshold_,
-            m_parameters_.m_median_filter_epsilon_
-        );
-
-        m_best_depth_v_u_ = tmp;
     }
     
-    /*
-     * *****************************************************************
-     * IMPLEMENTATION
-     * compute_2D_depth_epi
-     * *****************************************************************
-     */
-    template<typename DataType>
-    void compute_2D_edge_confidence(
-        const Vec<Mat>& m_epis_,
-        Vec<Mat>& m_edge_confidence_s_v_u_,
-        const Depth1DParameters<DataType>& m_parameters_,
-        Vec<BufferDepth1D<DataType>* >& m_buffers_
-    )
+}
+
+template<typename DataType>
+void selective_median_filter(
+    const Mat&  a_src,
+    Mat&        a_dst,
+    const Vec<Mat>& a_epis,
+    int         a_s_hat,
+    int         a_size,
+    const Mat&  a_edge_scores,
+    float       a_score_threshold,
+    float       a_epsilon
+)
+{
+    int dim_v = a_src.rows;
+    int dim_u = a_src.cols;
+    
+    // Allocate matrix if not allocated yet
+    if (a_dst.empty() || a_dst.size != a_src.size || a_dst.type() != a_src.type())
+        a_dst = Mat(dim_v, dim_u, a_src.type(), cv::Scalar(0.0));
+    
+    int thr_max = omp_get_max_threads();
+    Vec<Vec<float> > value_buffers;
+    for (int t=0; t<thr_max; t++)
+        value_buffers.push_back(Vec<float>());
+    
+    int width = (a_size-1)/2;
+    
+#pragma omp parallel for
+    for (int v=0; v<dim_v; v++)
     {
-        int m_s_dim_ = m_epis_[0].rows;
-        
-        // Compute edge confidence for all rows
-        for (int s=0; s<m_s_dim_; s++)
+        Vec<float> buffer = value_buffers[omp_get_thread_num()];
+        for (int u=0; u<dim_u; u++)
         {
-            Mat m_edge_confidence_v_u_ = m_edge_confidence_s_v_u_[s];
-            
-            compute_1D_edge_confidence_pile(
-                m_epis_,
-                s,
-                m_edge_confidence_v_u_,
-                m_parameters_,
-                m_buffers_
-            );
+            // If mask is null, skip
+            if (a_edge_scores.at<float>(v, u) > a_score_threshold)
+            {
+                buffer.clear();
+                for (int k=std::max(0, v-width); k<std::min(dim_v, v+width+1); k++)
+                {
+                    for (int l=std::max(0, u-width); l<std::min(dim_u, u+width+1); l++)
+                    {
+                        if (a_edge_scores.at<float>(k, l) > a_score_threshold && 
+                            norm(
+                                a_epis[v].at<DataType>(a_s_hat, u) - 
+                                a_epis[k].at<DataType>(a_s_hat, l)
+                                ) < a_epsilon)
+                        {
+                            buffer.push_back(a_src.at<float>(k, l));
+                        }
+                    }
+                }
+                // Compute the median
+                std::nth_element(buffer.begin(), buffer.begin() + buffer.size() / 2, buffer.end());
+                a_dst.at<float>(v, u) = buffer[buffer.size() / 2];
+            }
         }
     }
-     
-    template<typename DataType>
-    void compute_2D_depth_epi(
-        const Vec<Mat>& m_epis_,
-        const Vec<Mat>& m_dmin_s_v_u_,
-        const Vec<Mat>& m_dmax_s_v_u_,
-        int m_dim_d_,
-        const Vec<Mat>& m_edge_confidence_s_v_u_,
-        Vec<Mat>& m_disp_confidence_s_v_u_,
-        Vec<Mat>& m_best_depth_s_v_u_,
-        Vec<Mat>& m_rbar_s_v_u_,
-        const Depth1DParameters<DataType>& m_parameters_,
-        Vec<BufferDepth1D<DataType>* >& m_buffers_,
-        bool m_verbose_
-    )
-    {
-        int m_dim_s_ = m_epis_[0].rows;
-        int m_dim_u_ = m_epis_[0].cols;
-        int m_dim_v_ = m_epis_.size();
-        int m_s_hat_ = (int)std::floor(m_dim_s_ / 2.0);
-        
-        // Assume edge confidence is computed on all the image
-        
-        // Create a mask (CV_8UC1) and init to C_e > thr
-        Vec<Mat> mask_s_v_u_ = Vec<Mat>(m_dim_s_);
-        for (int s=0; s<m_dim_s_; s++)
-            mask_s_v_u_[s] = m_edge_confidence_s_v_u_[s] > m_parameters_.m_edge_score_threshold_;
-        
-        Mat m_dmin_v_u_;
-        Mat m_dmax_v_u_;
-        Mat m_edge_confidence_v_u_;
-        Mat m_disp_confidence_v_u_;
-        Mat m_best_depth_v_u_;
-        Mat m_rbar_v_u_;
-        Mat m_mask_v_u_;
-        
-        Vec<int> s_values;
-        s_values.push_back(m_s_hat_);
-        for (int s_offset=1; s_offset<m_dim_s_-m_s_hat_; s_offset++)
-        {
-            int s_sup = m_s_hat_ + s_offset;
-            int s_inf = m_s_hat_ - s_offset;
-            s_values.push_back(s_sup);
-            if (s_inf > -1)
-                s_values.push_back(s_inf);
-        }
-        
-        // Iterate over lines of the epi (s) starting from the middle
-        for (auto it = s_values.begin(); it < s_values.end(); it++) 
-        {
-            int s_hat = *it;
-            
-            if (m_verbose_)
-                std::cout << "Computing s_hat=" << s_hat << std::endl;
-            
-            m_dmin_v_u_ = m_dmin_s_v_u_[s_hat];
-            m_dmax_v_u_ = m_dmax_s_v_u_[s_hat];
-            m_edge_confidence_v_u_ = m_edge_confidence_s_v_u_[s_hat];
-            m_disp_confidence_v_u_ = m_disp_confidence_s_v_u_[s_hat];
-            m_best_depth_v_u_ = m_best_depth_s_v_u_[s_hat];
-            m_rbar_v_u_ = m_rbar_s_v_u_[s_hat];
-            m_mask_v_u_ = mask_s_v_u_[s_hat];
+}
 
-            compute_1D_depth_epi_pile<DataType>(
-                m_epis_,
-                m_dmin_v_u_,
-                m_dmax_v_u_,
-                m_dim_d_,
-                s_hat,
-                m_edge_confidence_v_u_,
-                m_disp_confidence_v_u_,
-                m_best_depth_v_u_,
-                m_rbar_v_u_,
-                m_parameters_,
-                m_buffers_,
-                m_mask_v_u_,
-                false // verbose
-            );
-            
-            if (m_verbose_)
-                std::cout << "Propagation..." << std::endl;
-            
-            // Propagate depths over lines and update further mask lines
-            // For each column of the s_hat row, draw the line, taking overlays into account
+
+/*
+ * *****************************************************************
+ * IMPLEMENTATION
+ * compute_1D_depth_epi_pile
+ * *****************************************************************
+ */
+
+template<typename DataType>
+void compute_1D_edge_confidence_pile(
+    const Vec<Mat>& a_epis,
+    int             a_s,
+    Mat&            a_edge_confidence_v_u,
+    const Depth1DParameters<DataType>&  a_parameters,
+    Vec<BufferDepth1D<DataType>* >&     a_buffers
+)
+{
+    int dim_v = a_epis.size();
+    
+    // Compute edge confidence for all rows
 #pragma omp parallel for
-            for (int v=0; v<m_dim_v_; v++)
+    for (int v=0; v<dim_v; v++)
+    {
+        Mat edge_confidence_u = a_edge_confidence_v_u.row(v);
+        
+        compute_1D_edge_confidence<DataType>(
+            a_epis[v], 
+            a_s, 
+            edge_confidence_u, 
+            a_parameters, 
+            *a_buffers[omp_get_thread_num()]
+        );
+    }
+}
+
+template<typename DataType>
+void compute_1D_depth_epi_pile(
+    const Vec<Mat>& a_epis,
+    const Mat&      a_dmin_v_u,
+    const Mat&      a_dmax_v_u,
+    int             a_dim_d,
+    int             a_s_hat,
+    const Mat&      a_edge_confidence_v_u,
+    Mat&            a_disp_confidence_v_u,
+    Mat&            a_best_depth_v_u,
+    Mat&            a_rbar_v_u,
+    const Depth1DParameters<DataType>&  a_parameters,
+    Vec<BufferDepth1D<DataType>* >&     a_buffers,
+    Mat&            a_mask_v_u,
+    bool            a_verbose
+)
+{
+    // Dimension
+    int dim_v = a_epis.size();
+    
+    // For progress bar
+    float progress = 0.0;
+    int barWidth = 40;
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+    
+#pragma omp parallel for
+    for (int v=0; v<dim_v; v++)
+    {
+        // Create views
+        Mat epi                 = a_epis[v];
+        Mat dmin_u              = a_dmin_v_u.row(v);
+        Mat dmax_u              = a_dmax_v_u.row(v);
+        Mat edge_confidence_u   = a_edge_confidence_v_u.row(v);
+        Mat disp_confidence_u   = a_disp_confidence_v_u.row(v);
+        Mat best_depth_u        = a_best_depth_v_u.row(v);
+        Mat rbar_u              = a_rbar_v_u.row(v);
+        
+        // Empty mask -> no masked point
+        Mat mask_u;
+        if (!a_mask_v_u.empty())
+            mask_u = a_mask_v_u.row(v);
+        
+        compute_1D_depth_epi(
+            epi,
+            dmin_u,
+            dmax_u,
+            a_dim_d,
+            a_s_hat,
+            edge_confidence_u,
+            disp_confidence_u,
+            best_depth_u,
+            rbar_u,
+            a_parameters,
+            *a_buffers[omp_get_thread_num()],
+            mask_u
+        );
+        
+        if (a_verbose)
+        {
+#pragma omp critical
+{
+            // Display progress bar
+            std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+            std::cout << "[";
+            int pos = barWidth * progress / dim_v;
+            for (int i = 0; i < barWidth; ++i) {
+                if (i < pos) std::cout << "=";
+                else if (i == pos) std::cout << ">";
+                else std::cout << " ";
+            }
+            std::cout << "] " << int(progress * 100.0 / dim_v) << "% \t" << std::chrono::duration_cast<std::chrono::seconds>( t2 - t1 ).count() << "s \r";
+            std::cout.flush();
+}
+#pragma omp atomic
+           progress += 1.0;
+        }
+    }
+    
+    // Apply median filter
+    if (a_verbose)
+        std::cout << std::endl << "Applying selective median fiter" << std::endl;
+    
+    Mat tmp;
+    selective_median_filter<DataType>(
+        a_best_depth_v_u, 
+        tmp,
+        a_epis,
+        a_s_hat,
+        a_parameters.par_median_filter_size, 
+        a_edge_confidence_v_u, 
+        a_parameters.par_edge_score_threshold,
+        a_parameters.par_median_filter_epsilon
+    );
+
+    a_best_depth_v_u = tmp;
+}
+
+/*
+ * *****************************************************************
+ * IMPLEMENTATION
+ * compute_2D_depth_epi
+ * *****************************************************************
+ */
+template<typename DataType>
+void compute_2D_edge_confidence(
+    const Vec<Mat>& a_epis,
+    Vec<Mat>&       a_edge_confidence_s_v_u,
+    const Depth1DParameters<DataType>&  a_parameters,
+    Vec<BufferDepth1D<DataType>* >&     a_buffers
+)
+{
+    int dim_s = a_epis[0].rows;
+    
+    // Compute edge confidence for all rows
+    for (int s=0; s<dim_s; s++)
+    {
+        Mat edge_confidence_v_u = a_edge_confidence_s_v_u[s];
+        
+        compute_1D_edge_confidence_pile(
+            a_epis,
+            s,
+            edge_confidence_v_u,
+            a_parameters,
+            a_buffers
+        );
+    }
+}
+ 
+template<typename DataType>
+void compute_2D_depth_epi(
+    const Vec<Mat>&     a_epis,
+    const Vec<Mat>&     a_dmin_s_v_u,
+    const Vec<Mat>&     a_dmax_s_v_u,
+    int                 a_dim_d,
+    const Vec<Mat>&     a_edge_confidence_s_v_u,
+    Vec<Mat>&           a_disp_confidence_s_v_u,
+    Vec<Mat>&           a_best_depth_s_v_u,
+    Vec<Mat>&           a_rbar_s_v_u,
+    const Depth1DParameters<DataType>&  a_parameters,
+    Vec<BufferDepth1D<DataType>* >&     a_buffers,
+    bool                a_verbose
+)
+{
+    int dim_s = a_epis[0].rows;
+    int dim_u = a_epis[0].cols;
+    int dim_v = a_epis.size();
+    int s_hat = (int)std::floor(dim_s / 2.0);
+    
+    // Assume edge confidence is computed on all the image
+    // Create a mask (CV_8UC1) and init to C_e > thr
+    Vec<Mat> mask_s_v_u = Vec<Mat>(dim_s);
+    for (int s=0; s<dim_s; s++)
+        mask_s_v_u[s] = a_edge_confidence_s_v_u[s] > a_parameters.par_edge_score_threshold;
+    
+    Mat dmin_v_u;
+    Mat dmax_v_u;
+    Mat edge_confidence_v_u;
+    Mat disp_confidence_v_u;
+    Mat best_depth_v_u;
+    Mat rbar_v_u;
+    Mat mask_v_u;
+    
+    Vec<int> s_values;
+    s_values.push_back(s_hat);
+    for (int s_offset=1; s_offset<dim_s-s_hat; s_offset++)
+    {
+        int s_sup = s_hat + s_offset;
+        int s_inf = s_hat - s_offset;
+        s_values.push_back(s_sup);
+        if (s_inf > -1)
+            s_values.push_back(s_inf);
+    }
+    
+    // Iterate over lines of the epi (s) starting from the middle
+    for (auto it = s_values.begin(); it < s_values.end(); it++) 
+    {
+        int s_hat = *it;
+        
+        if (a_verbose)
+            std::cout << "Computing s_hat=" << s_hat << std::endl;
+        
+        dmin_v_u            = a_dmin_s_v_u[s_hat];
+        dmax_v_u            = a_dmax_s_v_u[s_hat];
+        edge_confidence_v_u = a_edge_confidence_s_v_u[s_hat];
+        disp_confidence_v_u = a_disp_confidence_s_v_u[s_hat];
+        best_depth_v_u      = a_best_depth_s_v_u[s_hat];
+        rbar_v_u            = a_rbar_s_v_u[s_hat];
+        mask_v_u            = mask_s_v_u[s_hat];
+
+        compute_1D_depth_epi_pile<DataType>(
+            a_epis,
+            dmin_v_u,
+            dmax_v_u,
+            a_dim_d,
+            s_hat,
+            edge_confidence_v_u,
+            disp_confidence_v_u,
+            best_depth_v_u,
+            rbar_v_u,
+            a_parameters,
+            a_buffers,
+            mask_v_u,
+            false // verbose
+        );
+        
+        if (a_verbose)
+            std::cout << "Propagation..." << std::endl;
+        
+        // Propagate depths over lines and update further mask lines
+        // For each column of the s_hat row, draw the line, taking overlays into account
+#pragma omp parallel for
+        for (int v=0; v<dim_v; v++)
+        {
+            Mat edge_confidence_u   = edge_confidence_v_u.row(v);
+            Mat best_depth_u        = best_depth_v_u.row(v);
+            Mat rbar_u              = rbar_v_u.row(v);
+            for (int u=0; u<dim_u; u++)
             {
-                Mat m_edge_confidence_u_ = m_edge_confidence_v_u_.row(v);
-                Mat m_best_depth_u_ = m_best_depth_v_u_.row(v);
-                Mat m_rbar_u_ = m_rbar_v_u_.row(v);
-                for (int u=0; u<m_dim_u_; u++)
+                // Only paint if the confidence threshold was high enough
+                if (edge_confidence_u.at<float>(u) > a_parameters.par_edge_score_threshold)
                 {
-                    //~ std::cout << rslf::type2str(m_rbar_u_.type()) << std::endl;
-                    //~ std::cout << m_rbar_u_.size << std::endl;
-                    //~ std::cout << m_rbar_u_ << std::endl;
-                    // Only paint if the confidence threshold was high enough
-                    //~ std::cout << m_disp_confidence_v_u_.at<float>(u) << std::endl;
-                    //~ if (m_disp_confidence_v_u_.at<float>(u) > m_parameters_.m_disp_score_threshold_)
-                    if (m_edge_confidence_u_.at<float>(u) > m_parameters_.m_edge_score_threshold_)
+                    float current_depth_value = best_depth_u.at<float>(u);
+                    for (int s=0; s<dim_s; s++)
                     {
-                        float current_depth_value = m_best_depth_u_.at<float>(u);
-                        for (int s=0; s<m_dim_s_; s++)
-                        {
+                    
+                        int requested_index = u + (int)std::round(best_depth_u.at<float>(u) * (s_hat - s));
                         
-                            int requested_index = u + (int)std::round(m_best_depth_u_.at<float>(u) * (s_hat - s));
-                            //~ std::cout << "u=" << u << ", reqindex=" << requested_index << ", s=" << s << ", v=" << v << std::endl;
-                            //~ std::cout << m_epis_[v].at<DataType>(s, requested_index) << std::endl;
-                            //~ std::cout << m_rbar_u_.at<DataType>(u) << std::endl;
-                            //~ std::cout << norm<DataType>(m_epis_[v].at<DataType>(s, requested_index) - m_rbar_u_.at<DataType>(u)) << std::endl;
-                            if 
-                            (
-                                requested_index > -1 && 
-                                requested_index < m_dim_u_ && 
-                                mask_s_v_u_[s].at<uchar>(v, requested_index) == 255 &&
-                                norm<DataType>(m_epis_[v].at<DataType>(s, requested_index) - m_rbar_u_.at<DataType>(u)) < m_parameters_.m_propagation_epsilon 
-                            )
-                            {
-                                m_best_depth_s_v_u_[s].at<float>(v, requested_index) = current_depth_value;
-                                mask_s_v_u_[s].at<uchar>(v, requested_index) = 0;
-                            }
+                        if 
+                        (
+                            requested_index > -1 && 
+                            requested_index < dim_u && 
+                            mask_s_v_u[s].at<uchar>(v, requested_index) == 255 &&
+                            norm<DataType>(a_epis[v].at<DataType>(s, requested_index) - rbar_u.at<DataType>(u)) < a_parameters.par_propagation_epsilon 
+                        )
+                        {
+                            a_best_depth_s_v_u[s].at<float>(v, requested_index) = current_depth_value;
+                            mask_s_v_u[s].at<uchar>(v, requested_index) = 0;
                         }
                     }
                 }
             }
-            
         }
         
     }
+    
+}
 
 }
 

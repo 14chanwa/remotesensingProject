@@ -47,19 +47,3 @@ void rslf::_divide_multi_channel<cv::Vec3f>(const Mat& line_mat, const Mat& vec_
     cv::merge(channels, buffer);
     cv::divide(vec_mat, buffer, res_mat);
 }
-
-//~ if (tmp.channels() > 1)
-//~ {
-    //~ Vec<Mat> channels;
-    //~ cv::split(tmp, channels);
-    //~ for (int c=0; c<channels.size(); c++) 
-    //~ {
-        //~ cv::pow(channels[c], 2, channels[c]);
-        //~ m_edge_confidence_u_ += channels[c];
-    //~ }
-//~ }
-//~ else
-//~ {
-    //~ cv::pow(tmp, 2, tmp);
-    //~ m_edge_confidence_u_ += tmp;
-//~ }

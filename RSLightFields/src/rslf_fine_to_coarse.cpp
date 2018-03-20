@@ -117,9 +117,6 @@ void rslf::fuse_disp_maps
             tmp_map_down = disp_pyr_v_u_[p-1].clone();
             
             Mat tmp_mask = mask_pyr_v_u_[p-1] == 0;
-            //~ std::cout << "tmp_map_down " << rslf::type2str(tmp_map_down.type()) << ", " << tmp_map_down.size() << std::endl;
-            //~ std::cout << "tmp_map_up " << rslf::type2str(tmp_map_up.type()) << ", " << tmp_map_up.size() << std::endl;
-            //~ std::cout << "tmp_mask " << rslf::type2str(tmp_mask.type()) << ", " << tmp_mask.size() << std::endl;
             
             tmp_map_down.setTo(0.0, tmp_mask);
             cv::add(tmp_map_down, tmp_map_up, tmp_map_down, tmp_mask);

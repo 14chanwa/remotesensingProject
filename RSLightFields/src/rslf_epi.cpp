@@ -14,7 +14,8 @@
 rslf::Mat rslf::build_row_epi_from_imgs
 (
     Vec<Mat> imgs,
-    int row
+    int row,
+    bool transpose
 )
 {
     Mat img0 = imgs[0];
@@ -36,12 +37,16 @@ rslf::Mat rslf::build_row_epi_from_imgs
         imgs[i].row(row).copyTo(epi.row(i));
     }
     
+    if (transpose)
+        cv::transpose(epi, epi);
+    
     return epi;
 }
 
 rslf::Vec<rslf::Mat> rslf::build_epis_from_imgs
 (
-    Vec<Mat> imgs
+    Vec<Mat> imgs,
+    bool transpose
 )
 {
     Vec<Mat> epis;//(imgs[0].rows, cv::Mat::zeros(imgs.size(), imgs[0].cols, imgs[0].type()));
@@ -54,6 +59,10 @@ rslf::Vec<rslf::Mat> rslf::build_epis_from_imgs
         {
             imgs[s].row(v).copyTo(epi.row(s));
         }
+        
+        if (transpose)
+            cv::transpose(epi, epi);
+        
         epis.push_back(epi);
         
     }
@@ -70,7 +79,8 @@ rslf::Mat rslf::build_row_epi_from_path
     std::string path_to_folder,
     std::string extension,
     int row,
-    int cv_read_mode
+    int cv_read_mode,
+    bool transpose
 )
 {
     // Get all valid item names in directory
@@ -116,6 +126,9 @@ rslf::Mat rslf::build_row_epi_from_path
         Mat img = read_img_from_file(path_to_folder, list_files[i], extension, cv_read_mode);
         img.row(row).copyTo(epi.row(i));
     }
+    
+    if (transpose)
+        cv::transpose(epi, epi);
     
     return epi;
 }

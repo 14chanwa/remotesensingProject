@@ -43,6 +43,7 @@ private:
     Mat m_dmax_u;
     
     Mat m_edge_confidence_u;
+    Mat m_edge_confidence_mask_u;
     Mat m_disp_confidence_u;
     Mat m_rbar_u;
     Mat m_best_depth_u;
@@ -93,6 +94,7 @@ private:
     Mat m_dmax_v_u;
     
     Mat m_edge_confidence_v_u;
+    Mat m_edge_confidence_mask_v_u;
     Mat m_disp_confidence_v_u;
     Mat m_rbar_v_u;
     Mat m_best_depth_v_u;
@@ -203,6 +205,7 @@ private:
     Vec<Mat> m_dmax_s_v_u;
     
     Vec<Mat> m_edge_confidence_s_v_u;
+    Vec<Mat> m_edge_confidence_mask_s_v_u;
     Vec<Mat> m_disp_confidence_s_v_u;
     Vec<Mat> m_rbar_s_v_u;
     Vec<Mat> m_best_depth_s_v_u;
@@ -323,6 +326,7 @@ void Depth1DComputer<DataType>::run()
         m_epi,
         m_s_hat,
         m_edge_confidence_u,
+        m_edge_confidence_mask_u,
         m_parameters,
         buffer
     );
@@ -334,6 +338,7 @@ void Depth1DComputer<DataType>::run()
         m_dim_d,
         m_s_hat,
         m_edge_confidence_u,
+        m_edge_confidence_mask_u,
         m_disp_confidence_u,
         m_best_depth_u,
         m_rbar_u,
@@ -364,7 +369,7 @@ Mat Depth1DComputer<DataType>::get_coloured_epi(int a_cv_colormap) {
     for (int u=0; u<dim_u; u++)
     {
         // Only paint if the confidence threshold was high enough
-        if (m_edge_confidence_u.at<float>(u) > m_parameters.par_edge_score_threshold)
+        if (m_edge_confidence_mask_u.at<uchar>(u))
         {
             float current_depth_value = m_best_depth_u.at<float>(u);
             for (int s=0; s<dim_s; s++)
@@ -512,6 +517,7 @@ void Depth1DComputer_pile<DataType>::run()
         m_epis,
         m_s_hat,
         m_edge_confidence_v_u,
+        m_edge_confidence_mask_v_u,
         m_parameters,
         buffers
     );
@@ -523,6 +529,7 @@ void Depth1DComputer_pile<DataType>::run()
         m_dim_d,
         m_s_hat,
         m_edge_confidence_v_u,
+        m_edge_confidence_mask_v_u,
         m_disp_confidence_v_u,
         m_best_depth_v_u,
         m_rbar_v_u,
@@ -549,6 +556,7 @@ Mat Depth1DComputer_pile<DataType>::get_coloured_epi(int a_v, int a_cv_colormap)
     Mat epi = m_epis[a_v];
     Mat best_depth_u = m_best_depth_v_u.row(a_v);
     Mat edge_confidence_u = m_edge_confidence_v_u.row(a_v);
+    Mat edge_confidence_mask_u = m_edge_confidence_mask_v_u.row(a_v);
     
     // Build a matrix of occlusions: each element is the max observed depth
     Mat occlusion_map(dim_s, dim_u, CV_32FC1, -std::numeric_limits<float>::infinity());
@@ -565,7 +573,7 @@ Mat Depth1DComputer_pile<DataType>::get_coloured_epi(int a_v, int a_cv_colormap)
     for (int u=0; u<dim_u; u++)
     {
         // Only paint if the confidence threshold was high enough
-        if (edge_confidence_u.at<float>(u) > m_parameters.par_edge_score_threshold)
+        if (edge_confidence_mask_u.at<uchar>(u))
         {
             float current_depth_value = best_depth_u.at<float>(u);
             for (int s=0; s<dim_s; s++)
@@ -605,9 +613,7 @@ Mat Depth1DComputer_pile<DataType>::get_disparity_map(int a_cv_colormap)
     // Threshold scores
     Mat disparity_map_with_scores = cv::Mat::zeros(dim_v, dim_u, disparity_map.type());
     
-    Mat score_mask = m_edge_confidence_v_u > m_parameters.par_edge_score_threshold;
-    
-    cv::add(disparity_map, disparity_map_with_scores, disparity_map_with_scores, score_mask);
+    cv::add(disparity_map, disparity_map_with_scores, disparity_map_with_scores, m_edge_confidence_mask_v_u);
     
     return disparity_map_with_scores;
 }
@@ -739,6 +745,7 @@ void Depth2DComputer<DataType>::run()
     compute_2D_edge_confidence<DataType>(
         m_epis,
         m_edge_confidence_s_v_u,
+        m_edge_confidence_mask_s_v_u,
         m_parameters,
         m_buffers_
     );
@@ -749,6 +756,7 @@ void Depth2DComputer<DataType>::run()
         m_dmax_s_v_u,
         m_dim_d,
         m_edge_confidence_s_v_u,
+        m_edge_confidence_mask_s_v_u,
         m_disp_confidence_s_v_u,
         m_best_depth_s_v_u,
         m_rbar_s_v_u,
@@ -789,11 +797,11 @@ Mat Depth2DComputer<DataType>::get_coloured_epi(int a_v, int a_cv_colormap) {
     Mat coloured_epi = cv::Mat::zeros(dim_s, dim_u, CV_8UC3);
     for (int s=0; s<dim_s; s++)
     {
-        Mat edge_confidence_u = m_edge_confidence_s_v_u[s].row(a_v);
+        Mat edge_confidence_mask_u = m_edge_confidence_mask_s_v_u[s].row(a_v);
         for (int u=0; u<dim_u; u++)
         {
             // Only paint if the confidence threshold was high enough
-            if (edge_confidence_u.at<float>(u) > m_parameters.par_edge_score_threshold)
+            if (edge_confidence_mask_u.at<uchar>(u))
             {
                 coloured_epi.at<cv::Vec3b>(s, u) = coloured_depth.at<cv::Vec3b>(s, u);
             }
@@ -816,7 +824,7 @@ Mat Depth2DComputer<DataType>::get_disparity_map(int a_s, int a_cv_colormap)
     
     Mat disparity_map;
     Mat best_depth_v_u = m_best_depth_s_v_u[a_s];    
-    Mat edge_confidence_v_u = m_edge_confidence_s_v_u[a_s];    
+    Mat edge_confidence_mask_v_u = m_edge_confidence_mask_s_v_u[a_s];    
     Mat disp_confidence_v_u = m_disp_confidence_s_v_u[a_s];    
     
     disparity_map = rslf::copy_and_scale_uchar(best_depth_v_u);
@@ -825,10 +833,7 @@ Mat Depth2DComputer<DataType>::get_disparity_map(int a_s, int a_cv_colormap)
     // Threshold scores
     Mat disparity_map_with_scores = cv::Mat::zeros(dim_v, dim_u, disparity_map.type());
     
-    Mat score_mask = edge_confidence_v_u > m_parameters.par_edge_score_threshold;
-    //~ Mat score_mask = disp_confidence_v_u > m_parameters.m_disp_score_threshold_;
-    
-    cv::add(disparity_map, disparity_map_with_scores, disparity_map_with_scores, score_mask);
+    cv::add(disparity_map, disparity_map_with_scores, disparity_map_with_scores, edge_confidence_mask_v_u);
     
     return disparity_map_with_scores;
 }

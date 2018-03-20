@@ -27,6 +27,9 @@
 #define _DISP_SCORE_THRESHOLD 0.1
 #define _PROPAGATION_EPSILON 0.1
 
+#define _EDGE_CONFIDENCE_OPENING_TYPE cv::MORPH_ELLIPSE
+#define _EDGE_CONFIDENCE_OPENING_SIZE 1
+
 #define _SHADOW_NORMALIZED_LEVEL 0.05 * 1.73205080757 
 // between 0 and 1, 0 being dark and 1 being blank
 // multiplied by sqrt(3) for consistency with 3channels
@@ -65,7 +68,11 @@ public:
         par_edge_score_threshold = _EDGE_SCORE_THRESHOLD;
         par_disp_score_threshold = _DISP_SCORE_THRESHOLD;
         par_mean_shift_max_iter = _MEAN_SHIFT_MAX_ITER;
+        
         par_edge_confidence_filter_size = _EDGE_CONFIDENCE_FILTER_SIZE;
+        par_edge_confidence_opening_type = _EDGE_CONFIDENCE_OPENING_TYPE;
+        par_edge_confidence_opening_size = _EDGE_CONFIDENCE_OPENING_SIZE;
+        
         par_median_filter_size = _MEDIAN_FILTER_SIZE;
         par_median_filter_epsilon = _MEDIAN_FILTER_EPSILON;
         par_propagation_epsilon = _PROPAGATION_EPSILON;
@@ -89,6 +96,8 @@ public:
     float   par_disp_score_threshold;
     float   par_mean_shift_max_iter;
     int     par_edge_confidence_filter_size;
+    int     par_edge_confidence_opening_type;
+    int     par_edge_confidence_opening_size;
     int     par_median_filter_size;
     float   par_median_filter_epsilon;
     float   par_propagation_epsilon;
@@ -140,7 +149,6 @@ struct BufferDepth1D {
         buf_radiances_s_d = cv::Mat::zeros(a_dim_s, a_dim_d, a_data_type);
     }
     
-    Mat             buf_thr_tmp;
     Vec<cv::Point>  buf_locations;
     
     Mat             buf_scores_u_d;
@@ -173,6 +181,7 @@ void compute_1D_edge_confidence(
     const Mat&  a_epi,
     int         a_s,
     Mat&        a_edge_confidence_u,
+    Mat&        a_edge_confidence_mask_u,
     const Depth1DParameters<DataType>&  a_parameters,
     BufferDepth1D<DataType>&            a_buffer
 );
@@ -185,6 +194,7 @@ void compute_1D_depth_epi(
     int         a_dim_d,
     int         a_s_hat,
     const Mat&  a_edge_confidence_u,
+    const Mat&  a_edge_confidence_mask_u,
     Mat&        a_disp_confidence_u,
     Mat&        a_best_depth_u,
     Mat&        a_rbar_u,
@@ -204,6 +214,7 @@ void compute_1D_edge_confidence_pile(
     const Vec<Mat>& a_epis,
     int             a_s,
     Mat&            a_edge_confidence_v_u,
+    Mat&            a_edge_confidence_mask_v_u,
     const Depth1DParameters<DataType>&  a_parameters,
     Vec<BufferDepth1D<DataType>* >&     a_buffers
 );
@@ -216,6 +227,7 @@ void compute_1D_depth_epi_pile(
     int             a_dim_d,
     int             a_s_hat,
     const Mat&      a_edge_confidence_v_u,
+    const Mat&      a_edge_confidence_mask_v_u,
     Mat&            a_disp_confidence_v_u,
     Mat&            a_best_depth_v_u,
     Mat&            a_rbar_v_u,
@@ -236,6 +248,7 @@ template<typename DataType>
 void compute_2D_edge_confidence(
     const Vec<Mat>& a_epis,
     Vec<Mat>&       a_edge_confidence_s_v_u,
+    Vec<Mat>&       a_edge_confidence_mask_s_v_u,
     const Depth1DParameters<DataType>&  a_parameters,
     Vec<BufferDepth1D<DataType>* >&     a_buffers
 );
@@ -247,6 +260,7 @@ void compute_2D_depth_epi(
     const Vec<Mat>&     a_dmax_s_v_u,
     int                 a_dim_d,
     const Vec<Mat>&     a_edge_confidence_s_v_u,
+    const Vec<Mat>&     a_edge_confidence_mask_s_v_u,
     Vec<Mat>&           a_disp_confidence_s_v_u,
     Vec<Mat>&           a_best_depth_s_v_u,
     Vec<Mat>&           a_rbar_s_v_u,
@@ -270,8 +284,7 @@ void selective_median_filter(
     const Vec<Mat>& a_epis,
     int         a_s_hat,
     int         a_size,
-    const Mat&  a_edge_scores,
-    float       a_score_threshold,
+    const Mat&  a_mask_v_u,
     float       a_epsilon
 );
 
@@ -329,6 +342,7 @@ void compute_1D_edge_confidence(
     const Mat&  a_epi,
     int         a_s,
     Mat&        a_edge_confidence_u,
+    Mat&        a_edge_confidence_mask_u,
     const Depth1DParameters<DataType>&  a_parameters,
     BufferDepth1D<DataType>&            a_buffer
 )
@@ -370,6 +384,9 @@ void compute_1D_edge_confidence(
         im_norm.at<float>(u) = norm<DataType>(a_epi.row(a_s).at<DataType>(u));
     }
     a_edge_confidence_u.setTo(0.0, im_norm < _SHADOW_NORMALIZED_LEVEL);
+    
+    a_edge_confidence_mask_u = a_edge_confidence_u > a_parameters.par_edge_score_threshold;
+    
 }
 
 template<typename DataType>
@@ -380,6 +397,7 @@ void compute_1D_depth_epi(
     int         a_dim_d,
     int         a_s_hat,
     const Mat&  a_edge_confidence_u,
+    const Mat&  a_edge_confidence_mask_u,
     Mat&        a_disp_confidence_u,
     Mat&        a_best_depth_u,
     Mat&        a_rbar_u,
@@ -401,12 +419,10 @@ void compute_1D_depth_epi(
     
     // Get indices u to compute
     // Do not compute low-confidence values or value masked
-    Mat thr_tmp = a_buffer.buf_thr_tmp;
-    thr_tmp = a_edge_confidence_u > a_parameters.par_edge_score_threshold;
     if (!a_mask_u.empty())
-        cv::bitwise_and(thr_tmp, a_mask_u, a_mask_u);
+        cv::bitwise_and(a_edge_confidence_mask_u, a_mask_u, a_mask_u);
     else
-        a_mask_u = thr_tmp;
+        a_mask_u = a_edge_confidence_mask_u;
     
     Vec<cv::Point> locations = a_buffer.buf_locations;
     cv::findNonZero(a_mask_u, locations);
@@ -539,8 +555,7 @@ void selective_median_filter(
     const Vec<Mat>& a_epis,
     int         a_s_hat,
     int         a_size,
-    const Mat&  a_edge_scores,
-    float       a_score_threshold,
+    const Mat&  a_mask_v_u,
     float       a_epsilon
 )
 {
@@ -565,14 +580,14 @@ void selective_median_filter(
         for (int u=0; u<dim_u; u++)
         {
             // If mask is null, skip
-            if (a_edge_scores.at<float>(v, u) > a_score_threshold)
+            if (a_mask_v_u.at<uchar>(v, u))
             {
                 buffer.clear();
                 for (int k=std::max(0, v-width); k<std::min(dim_v, v+width+1); k++)
                 {
                     for (int l=std::max(0, u-width); l<std::min(dim_u, u+width+1); l++)
                     {
-                        if (a_edge_scores.at<float>(k, l) > a_score_threshold && 
+                        if (a_mask_v_u.at<uchar>(k, l) && 
                             norm(
                                 a_epis[v].at<DataType>(a_s_hat, u) - 
                                 a_epis[k].at<DataType>(a_s_hat, l)
@@ -603,25 +618,42 @@ void compute_1D_edge_confidence_pile(
     const Vec<Mat>& a_epis,
     int             a_s,
     Mat&            a_edge_confidence_v_u,
+    Mat&            a_edge_confidence_mask_v_u,
     const Depth1DParameters<DataType>&  a_parameters,
     Vec<BufferDepth1D<DataType>* >&     a_buffers
 )
 {
     int dim_v = a_epis.size();
     
+    a_edge_confidence_mask_v_u = Mat(a_edge_confidence_v_u.rows, a_edge_confidence_v_u.cols, CV_8UC1);
+    
     // Compute edge confidence for all rows
 #pragma omp parallel for
     for (int v=0; v<dim_v; v++)
     {
         Mat edge_confidence_u = a_edge_confidence_v_u.row(v);
+        Mat edge_confidence_mask_u = a_edge_confidence_mask_v_u.row(v);
         
         compute_1D_edge_confidence<DataType>(
             a_epis[v], 
             a_s, 
             edge_confidence_u, 
+            edge_confidence_mask_u, 
             a_parameters, 
             *a_buffers[omp_get_thread_num()]
         );
+    }
+    
+    if (a_parameters.par_edge_confidence_opening_size > 1)
+    {
+        // Perform a morphological opening on the result
+        Mat kernel = cv::getStructuringElement
+        (
+            a_parameters.par_edge_confidence_opening_type,
+            cv::Size(a_parameters.par_edge_confidence_opening_size, a_parameters.par_edge_confidence_opening_size)
+        );
+        
+        cv::morphologyEx(a_edge_confidence_mask_v_u, a_edge_confidence_mask_v_u, cv::MORPH_OPEN, kernel);
     }
 }
 
@@ -633,6 +665,7 @@ void compute_1D_depth_epi_pile(
     int             a_dim_d,
     int             a_s_hat,
     const Mat&      a_edge_confidence_v_u,
+    const Mat&      a_edge_confidence_mask_v_u,
     Mat&            a_disp_confidence_v_u,
     Mat&            a_best_depth_v_u,
     Mat&            a_rbar_v_u,
@@ -658,6 +691,7 @@ void compute_1D_depth_epi_pile(
         Mat dmin_u              = a_dmin_v_u.row(v);
         Mat dmax_u              = a_dmax_v_u.row(v);
         Mat edge_confidence_u   = a_edge_confidence_v_u.row(v);
+        Mat edge_confidence_mask_u = a_edge_confidence_mask_v_u.row(v);
         Mat disp_confidence_u   = a_disp_confidence_v_u.row(v);
         Mat best_depth_u        = a_best_depth_v_u.row(v);
         Mat rbar_u              = a_rbar_v_u.row(v);
@@ -667,13 +701,14 @@ void compute_1D_depth_epi_pile(
         if (!a_mask_v_u.empty())
             mask_u = a_mask_v_u.row(v);
         
-        compute_1D_depth_epi(
+        compute_1D_depth_epi<DataType>(
             epi,
             dmin_u,
             dmax_u,
             a_dim_d,
             a_s_hat,
             edge_confidence_u,
+            edge_confidence_mask_u,
             disp_confidence_u,
             best_depth_u,
             rbar_u,
@@ -714,8 +749,7 @@ void compute_1D_depth_epi_pile(
         a_epis,
         a_s_hat,
         a_parameters.par_median_filter_size, 
-        a_edge_confidence_v_u, 
-        a_parameters.par_edge_score_threshold,
+        a_edge_confidence_mask_v_u, 
         a_parameters.par_median_filter_epsilon
     );
 
@@ -732,24 +766,31 @@ template<typename DataType>
 void compute_2D_edge_confidence(
     const Vec<Mat>& a_epis,
     Vec<Mat>&       a_edge_confidence_s_v_u,
+    Vec<Mat>&       a_edge_confidence_mask_s_v_u,
     const Depth1DParameters<DataType>&  a_parameters,
     Vec<BufferDepth1D<DataType>* >&     a_buffers
 )
 {
     int dim_s = a_epis[0].rows;
     
+    a_edge_confidence_mask_s_v_u.clear();
+    
     // Compute edge confidence for all rows
     for (int s=0; s<dim_s; s++)
     {
         Mat edge_confidence_v_u = a_edge_confidence_s_v_u[s];
+        Mat edge_confidence_mask_v_u;
         
         compute_1D_edge_confidence_pile(
             a_epis,
             s,
             edge_confidence_v_u,
+            edge_confidence_mask_v_u,
             a_parameters,
             a_buffers
         );
+        
+        a_edge_confidence_mask_s_v_u.push_back(edge_confidence_mask_v_u);
     }
 }
  
@@ -760,6 +801,7 @@ void compute_2D_depth_epi(
     const Vec<Mat>&     a_dmax_s_v_u,
     int                 a_dim_d,
     const Vec<Mat>&     a_edge_confidence_s_v_u,
+    const Vec<Mat>&     a_edge_confidence_mask_s_v_u,
     Vec<Mat>&           a_disp_confidence_s_v_u,
     Vec<Mat>&           a_best_depth_s_v_u,
     Vec<Mat>&           a_rbar_s_v_u,
@@ -777,11 +819,15 @@ void compute_2D_depth_epi(
     // Create a mask (CV_8UC1) and init to C_e > thr
     Vec<Mat> mask_s_v_u = Vec<Mat>(dim_s);
     for (int s=0; s<dim_s; s++)
-        mask_s_v_u[s] = a_edge_confidence_s_v_u[s] > a_parameters.par_edge_score_threshold;
+    {
+        // TODO other criteria?
+        mask_s_v_u[s] = a_edge_confidence_mask_s_v_u[s];
+    }
     
     Mat dmin_v_u;
     Mat dmax_v_u;
     Mat edge_confidence_v_u;
+    Mat edge_confidence_mask_v_u;
     Mat disp_confidence_v_u;
     Mat best_depth_v_u;
     Mat rbar_v_u;
@@ -809,6 +855,7 @@ void compute_2D_depth_epi(
         dmin_v_u            = a_dmin_s_v_u[s_hat];
         dmax_v_u            = a_dmax_s_v_u[s_hat];
         edge_confidence_v_u = a_edge_confidence_s_v_u[s_hat];
+        edge_confidence_mask_v_u = a_edge_confidence_mask_s_v_u[s_hat];
         disp_confidence_v_u = a_disp_confidence_s_v_u[s_hat];
         best_depth_v_u      = a_best_depth_s_v_u[s_hat];
         rbar_v_u            = a_rbar_s_v_u[s_hat];
@@ -821,6 +868,7 @@ void compute_2D_depth_epi(
             a_dim_d,
             s_hat,
             edge_confidence_v_u,
+            edge_confidence_mask_v_u,
             disp_confidence_v_u,
             best_depth_v_u,
             rbar_v_u,
@@ -844,13 +892,13 @@ void compute_2D_depth_epi(
             for (int u=0; u<dim_u; u++)
             {
                 // Only paint if the confidence threshold was high enough
-                if (edge_confidence_u.at<float>(u) > a_parameters.par_edge_score_threshold)
+                if (edge_confidence_mask_v_u.at<uchar>(v, u))
                 {
                     float current_depth_value = best_depth_u.at<float>(u);
                     for (int s=0; s<dim_s; s++)
                     {
                     
-                        int requested_index = u + (int)std::round(best_depth_u.at<float>(u) * (s_hat - s));
+                        int requested_index = u + (int)std::round(best_depth_u.at<float>(u) * (s_hat - s) * a_parameters.par_slope_factor);
                         
                         if 
                         (

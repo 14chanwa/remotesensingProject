@@ -394,6 +394,81 @@ It also seems that contrary to the mansion image, there seem to be some more blu
 %\end{figure}
 
 
+\clearpage
+\section{Fine to coarse}
+
+
+\paragraph{Downsampling} We then implement the method described in Kim et al. to progressively fill the zones left blank by our confidence criterion (we choose here $C_e > 0.1$ ; one could apply $C_d > \varepsilon$ like in the article but this is significantly more computationally intensive). This approach is similar to building a pyramid of images, and writes as follow:
+\begin{enumerate}
+ \item Let us consider a pile of images at the scale $p$ (the ``stair $p$'' of the pyramid). One first applies a Gaussian filter in the spatial dimensions $(v, u)$. We chose a $7\times 7$ filter, as in the article.
+ \item We then downsample the images by taking one line over 2 in the spatial dimensions $(v, u)$ ; the resolution along the temporal dimension $s$ is left unchanged. This is the stair $p+1$ of the pyramid of images.
+ \item Then, we use the confident disparities computed at the scale $p$ in order to derive disparity bounds for the scale $p+1$. This step is not described precisely in the article ; we chose, given a point $(s, v', u')$ in $p+1$, to select the 2 pairs of points $(s, v, [u_1^1, u_2^1])$ $(s, v+1, [u_1^2, u_2^2])$ where $v = 2 v'$ and $u_1^1$, $u_1^2$ are the first confident points at the left and right of $u=2u'$. The bounds for $(s, v', u')$ will be the $\min$ and the $\max$ disparities among these points.
+ \item We then perform a disparity computation along all axis as described in the preceding section.
+\end{enumerate}
+The pyramid process is represented in Figure \ref{fig:pyramid}. The confidence score will be less and less restrictive due to the regularization effect of downsampling.
+
+
+\paragraph{Going up to the finest scale} In order to retrieve the disparity map to the finest scale $p=0$, one then proceeds the other way round:
+\begin{enumerate}
+ \item Starting at $p=p_{\max}$, one upscales the disparity estimates (with bilinear interpolation) and the validity mask $M_e = \{C_e > 0.1\}$ (with nearest neighbour interpolation).
+ \item Consider the disparity map at scale $p-1$. Fill the blank zones of this disparity map using the upscaled disparity map from $p$ at confident points from $M_e$.
+\end{enumerate}
+
+
+
+In the end, following the paper, we also make the following refinements:
+\begin{itemize}
+ \item We apply a median $3\times 3$ filter on the final disparity map estimates.
+ \item When establishing the map of valid points $M_e = \{C_e > 0.1\}$, one can perform a mathematical opening in order to remove falsely confident points. We find out that this degrades the performance of the algorithm on non-sharp images such as the Skysat sequence, so we chose to deactivate this feature.
+\end{itemize}
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.3\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_depth_000.png}
+  \includegraphics[width=0.15\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_depth_001.png}
+  \includegraphics[width=0.075\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_depth_002.png}
+  \includegraphics[width=0.0375\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_depth_003.png}
+  \includegraphics[width=0.01875\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_depth_004.png}
+  \includegraphics[width=0.009375\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_depth_005.png} \\
+  \includegraphics[width=0.3\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_epi_000.png}
+  \includegraphics[width=0.15\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_epi_001.png}
+  \includegraphics[width=0.075\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_epi_002.png}
+  \includegraphics[width=0.0375\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_epi_003.png}
+  \includegraphics[width=0.01875\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_epi_004.png}
+  \includegraphics[width=0.009375\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_epi_005.png}
+  \caption{Pyramid of downsampled disparity maps and corresponding EPIs (after disparity computation).}
+  \label{fig:pyramid}
+\end{figure}
+
+
+\paragraph{Results and limitations} The fact that we define new disparity bounds at each step ensures the coherence of the depth estimations when the depth at the boundaries of an object have been computed. Results for the Skysat and mansion datasets are presented in Figure \ref{fig:finetocoarse:res}. It should be noted that the best estimates are made for frames near $\widehat{s} = \dim s / 2$ as the propagation process might end up perturbating the estimates. This is due to changes in the image such as:
+\begin{itemize}
+ \item New objects appearing, objects disappearing.
+ \item Objects changing shape (for instance, the walls of a building are likely to change shape due to perspective effects).
+ \item Global changes in illumination conditions. This is notable in the Skysat dataset.
+ \item Shading. This appears to be a great source of errors in the Skysat dataset, as the shadows will be interpreted as rough confident edges, but are not textured, so their depth estimates will be flawed. We decided to remove the shadow areas by setting the pixels with $\norm{E(s, v, u) < 0.05}$ to $C_e = 0$.
+ \item Tricky surfaces such as reflective surfaces (the glass surfaces on buildings) will be misinterpreted since they reflect the ground... and thus will have a disparity dependant on the viewpoint of the camera, with a negative sign.
+\end{itemize}
+
+
+See also the GIFs in the folders \verb#animate_skysat_ftc4# and \verb#animate_mansion#.
+
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.45\textwidth]{animate_mansion/1521576787209_dmap_025.png}
+  \includegraphics[width=0.45\textwidth]{animate_mansion/1521576787209_dmap_050.png} \\
+  
+  \includegraphics[width=0.3\textwidth]{animate_skysat_ftc4/1521546364721_dmap_025.png}
+  \includegraphics[width=0.3\textwidth]{animate_skysat_ftc4/1521546364721_dmap_050.png}
+  \caption{Results on the mansion (top) and Skysat (bottom) datasets, for $s=25$ (left) and $s=50=\widehat{s}$ (right). The depth estimates are better near $\widehat{s}$.}
+  \label{fig:finetocoarse:res}
+\end{figure}
+
+
+
 
 
 \clearpage

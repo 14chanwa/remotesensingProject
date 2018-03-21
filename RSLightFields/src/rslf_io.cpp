@@ -15,7 +15,8 @@ rslf::Mat rslf::read_img_from_file
     std::string path_to_folder, 
     std::string name_we,
     std::string extension,
-    int cv_read_mode
+    int cv_read_mode,
+    bool transpose
 ) 
 {
     Mat img = cv::imread(path_to_folder + name_we + "." + extension, cv_read_mode);
@@ -27,6 +28,10 @@ rslf::Mat rslf::read_img_from_file
 #ifdef _RSLF_IO_DEBUG
         std::cout << img.at<float>(0, 0) << std::endl;
 #endif
+    
+    if (transpose)
+        cv::transpose(img, img);
+    
     return img;
 }
 
@@ -34,7 +39,8 @@ rslf::Vec<rslf::Mat> rslf::read_imgs_from_folder
 (
     std::string path_to_folder,
     std::string extension,
-    int cv_read_mode
+    int cv_read_mode,
+    bool transpose
 ) 
 {
     // Get all valid item names in directory
@@ -61,6 +67,10 @@ rslf::Vec<rslf::Mat> rslf::read_imgs_from_folder
         std::cout << "Read " << current_name << "." << extension << std::endl;
 #endif
         Mat img = read_img_from_file(path_to_folder, current_name, extension, cv_read_mode);
+        
+        if (transpose)
+            cv::transpose(img, img);
+        
         imgs.push_back(img);
     }
     

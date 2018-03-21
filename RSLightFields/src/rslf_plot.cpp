@@ -89,10 +89,14 @@ void rslf::ImageConverter_uchar::fit(const Mat& img)
     
     std::cout << "idx_min=" << idx_min << ", idx_max=" << idx_max << std::endl;
     std::cout << "min=" << min << ", max=" << max << std::endl;
+    
+    m_initialized = true;
 }
 
 void rslf::ImageConverter_uchar::copy_and_scale(const Mat& src, Mat& dst)
 {
+    assert(m_initialized && "ImageConverter should be fitted before usage");
+    
     // Copy and scale values to uchar
     float alpha = 255.0/(max-min);
     src.convertTo(dst, CV_8U, alpha, -alpha * min);

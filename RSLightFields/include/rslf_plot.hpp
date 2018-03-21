@@ -42,6 +42,7 @@ public:
 private:
     double min;
     double max;
+    bool m_initialized = false;
 };
 
 /**

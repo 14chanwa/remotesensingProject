@@ -406,7 +406,6 @@ void compute_1D_depth_epi(
     Mat&        a_mask_u
 ) 
 {
-    
     // Dimensions
     int dim_s = a_epi.rows;
     
@@ -816,6 +815,7 @@ void compute_2D_depth_epi(
     int s_hat = (int)std::floor(dim_s / 2.0);
     
     // Assume edge confidence is computed on all the image
+    
     // Create a mask (CV_8UC1) and init to C_e > thr
     Vec<Mat> mask_s_v_u = Vec<Mat>(dim_s);
     for (int s=0; s<dim_s; s++)

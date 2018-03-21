@@ -25,7 +25,8 @@ Mat read_img_from_file
     std::string path_to_folder, 
     std::string name_we,
     std::string extension,
-    int cv_read_mode = CV_LOAD_IMAGE_GRAYSCALE
+    int cv_read_mode = CV_LOAD_IMAGE_GRAYSCALE,
+    bool transpose = false
 );
 
 /**
@@ -40,7 +41,8 @@ std::vector<Mat> read_imgs_from_folder
 (
     std::string path_to_folder,
     std::string extension,
-    int cv_read_mode = CV_LOAD_IMAGE_GRAYSCALE 
+    int cv_read_mode = CV_LOAD_IMAGE_GRAYSCALE,
+    bool transpose = false
 );
 
 /**

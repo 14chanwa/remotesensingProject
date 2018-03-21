@@ -61,6 +61,9 @@ int main(int argc, char* argv[])
      */
     int current_image_counter = 0;
     bool stop_flag = false;
+    bool first_flag = true;
+    
+    rslf::ImageConverter_uchar converter;
     do 
     {
         // Get next image
@@ -77,6 +80,8 @@ int main(int argc, char* argv[])
         
         if (!img.empty())
         {
+            if (first_flag)
+                converter.fit(img);
         
             std::cout << "#" << current_image_counter << " Image size " << height << "x" << width << " type " <<
                 rslf::type2str(img.type()) << std::endl;
@@ -92,11 +97,12 @@ int main(int argc, char* argv[])
                 //~ std::cout << std::endl;
             //~ }
             
-            double min, max;
-            cv::minMaxLoc(img, &min, &max);
-            cv::Mat tmp;
-            img.convertTo(tmp,CV_8U,255.0/(max-min));
-            img = tmp;
+            //~ double min, max;
+            //~ cv::minMaxLoc(img, &min, &max);
+            //~ cv::Mat tmp;
+            //~ img.convertTo(tmp,CV_8U,255.0/(max-min));
+            //~ img = tmp;
+            converter.copy_and_scale(img, img);
 
             cv::namedWindow("Image", CV_WINDOW_AUTOSIZE);
             cv::imshow("Image", img);

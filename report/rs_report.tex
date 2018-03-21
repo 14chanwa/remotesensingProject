@@ -437,7 +437,22 @@ In the end, following the paper, we also make the following refinements:
   \includegraphics[width=0.0375\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_epi_003.png}
   \includegraphics[width=0.01875\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_epi_004.png}
   \includegraphics[width=0.009375\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_epi_005.png}
-  \caption{Pyramid of downsampled disparity maps and corresponding EPIs (after disparity computation).}
+  \\[0.5cm]
+  \includegraphics[width=0.3\textwidth]{animate_mansion/pyr/1521576787209_pyr_depth_000.png}
+  \includegraphics[width=0.15\textwidth]{animate_mansion/pyr/1521576787209_pyr_depth_001.png}
+  \includegraphics[width=0.075\textwidth]{animate_mansion/pyr/1521576787209_pyr_depth_002.png}
+  \includegraphics[width=0.0375\textwidth]{animate_mansion/pyr/1521576787209_pyr_depth_003.png}
+  \includegraphics[width=0.01875\textwidth]{animate_mansion/pyr/1521576787209_pyr_depth_004.png}
+  \includegraphics[width=0.009375\textwidth]{animate_mansion/pyr/1521576787209_pyr_depth_005.png}
+  \includegraphics[width=0.0046875\textwidth]{animate_mansion/pyr/1521576787209_pyr_depth_006.png}\\
+  \includegraphics[width=0.3\textwidth]{animate_mansion/pyr/1521576787209_pyr_epi_000.png}
+  \includegraphics[width=0.15\textwidth]{animate_mansion/pyr/1521576787209_pyr_epi_001.png}
+  \includegraphics[width=0.075\textwidth]{animate_mansion/pyr/1521576787209_pyr_epi_002.png}
+  \includegraphics[width=0.0375\textwidth]{animate_mansion/pyr/1521576787209_pyr_epi_003.png}
+  \includegraphics[width=0.01875\textwidth]{animate_mansion/pyr/1521576787209_pyr_epi_004.png}
+  \includegraphics[width=0.009375\textwidth]{animate_mansion/pyr/1521576787209_pyr_epi_005.png}
+  \includegraphics[width=0.0046875\textwidth]{animate_mansion/pyr/1521576787209_pyr_epi_006.png}
+  \caption{Pyramid of downsampled disparity maps and sample EPIs (after disparity computation) for the Skysat sequence with step 18 (top) and mansion sequence (bottom).}
   \label{fig:pyramid}
 \end{figure}
 
@@ -468,7 +483,46 @@ See also the GIFs in the folders \verb#animate_skysat_ftc4# and \verb#animate_ma
 \end{figure}
 
 
+\paragraph{On a sequence with small slopes}
 
+
+We investigate the performance of the algorithm with very small slopes with a sequence of Skysat with slower variations. A sample EPI is presented in Figure \ref{fig:epi:skysat1}. This example is harder since the variations are mostly under the scale of a pixel. We ran the algorithm with a choice of $d_{\min} = -0.5$ to $d_{\max} = 0.5$ and $120$ steps. This led to the results presented in Figure xxx. These results are quite satisfactory given the small slopes to be measured, but show some underestimated slopes on the top of the buildings. We assume these are due to the fact that the disparities are harder to be estimated when undersampling - these may be improved by using better interpolation formulae.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\epiWidth\textwidth]{images/1521592293547_1st.png}\\
+  \includegraphics[width=\epiWidth\textwidth]{images/1521592293547_epi.png}
+  \caption{Sample EPI from the Skysat sequence with slow variations.}
+  \label{fig:epi:skysat1}
+\end{figure}
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.3\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_depth_000.png}
+  \includegraphics[width=0.15\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_depth_001.png}
+  \includegraphics[width=0.075\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_depth_002.png}
+  \includegraphics[width=0.0375\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_depth_003.png}
+  \includegraphics[width=0.01875\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_depth_004.png}
+  \includegraphics[width=0.009375\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_depth_005.png} \\
+  \includegraphics[width=0.3\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_epi_000.png}
+  \includegraphics[width=0.15\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_epi_001.png}
+  \includegraphics[width=0.075\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_epi_002.png}
+  \includegraphics[width=0.0375\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_epi_003.png}
+  \includegraphics[width=0.01875\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_epi_004.png}
+  \includegraphics[width=0.009375\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_epi_005.png}
+  \caption{Pyramid of downsampled disparity maps and sample EPIs (after disparity computation) for the Skysat sequence with step 1.}
+  \label{fig:pyramid:skysat1}
+\end{figure}
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.3\textwidth]{animate_skysat_step1/1521592997433_dmap_025.png}
+  \includegraphics[width=0.3\textwidth]{animate_skysat_step1/1521592997433_dmap_050.png}
+  \caption{Results on the Skysat sequence with step 1 ($d_{\min} = -0.5$ to $d_{\max} = 0.5$ and $120$ steps) for frames $s=25$ (left) and $\widehat{s}=50$ (right).}
+  \label{fig:finetocoarse:res:skysat1}
+\end{figure}
 
 
 \clearpage

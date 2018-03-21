@@ -2,6 +2,7 @@
 #define _RSLF_FINE_TO_COARSE
 
 
+#include <limits>
 #include <rslf_depth_computation.hpp>
 
 
@@ -58,7 +59,9 @@ public:
         float d_max,
         int dim_d,
         float epi_scale_factor = -1,
-        const Depth1DParameters<DataType>& parameters = Depth1DParameters<DataType>::get_default()
+        const Depth1DParameters<DataType>& parameters = Depth1DParameters<DataType>::get_default(),
+        int max_pyr_depth = -1,
+        bool accept_all_last_scale = true
     );
     ~FineToCoarse();
     
@@ -66,9 +69,10 @@ public:
     
     void get_results(Vec<Mat>& out_map_s_v_u_, Vec<Mat>& out_validity_s_v_u_);
     
-    void get_coloured_depth_maps(Vec<Mat>& out_plot_depth_s_v_u_, int cv_colormap = cv::COLORMAP_JET);
-    void get_coloured_epi_pyr(Vec<Mat>& out_plot_epi_pyr_p_s_u_, int v = -1, int cv_colormap = cv::COLORMAP_JET);
-    void get_coloured_depth_pyr(Vec<Mat>& out_plot_depth_pyr_p_v_u_, int s = -1, int cv_colormap = cv::COLORMAP_JET);
+    void get_coloured_depth_maps(Vec<Mat>& out_plot_depth_s_v_u_, int cv_colormap = cv::COLORMAP_JET, bool saturate = true);
+    void get_coloured_depth_maps_and_imgs(Vec<Mat>& out_plot_depth_s_v_u_, int cv_colormap = cv::COLORMAP_JET, bool saturate = true);
+    void get_coloured_epi_pyr(Vec<Mat>& out_plot_epi_pyr_p_s_u_, int v = -1, int cv_colormap = cv::COLORMAP_JET, bool saturate = true);
+    void get_coloured_depth_pyr(Vec<Mat>& out_plot_depth_pyr_p_v_u_, int s = -1, int cv_colormap = cv::COLORMAP_JET, bool saturate = true);
     
     //~ Mat get_coloured_epi(int v = -1, int cv_colormap = cv::COLORMAP_JET);
     //~ Mat get_disparity_map(int s = -1, int cv_colormap = cv::COLORMAP_JET);
@@ -76,6 +80,7 @@ public:
 private:
     Vec<Depth2DComputer<DataType>* > m_computers;
     Vec<Depth1DParameters<DataType>* > m_parameter_instances;
+    bool m_accept_all_last_scale;
 };
 
 
@@ -91,7 +96,9 @@ FineToCoarse<DataType>::FineToCoarse
     float d_max,
     int dim_d,
     float epi_scale_factor,
-    const Depth1DParameters<DataType>& parameters
+    const Depth1DParameters<DataType>& parameters,
+    int max_pyr_depth,
+    bool accept_all_last_scale
 )
 {
     Vec<Mat> tmp_epis = epis;
@@ -102,8 +109,14 @@ FineToCoarse<DataType>::FineToCoarse
     int dim_v = tmp_epis.size();
     int dim_u = tmp_epis[0].cols;
     
-    while (dim_v > _MIN_SPATIAL_DIM && dim_u > _MIN_SPATIAL_DIM)
+    if (max_pyr_depth < 1)
+        max_pyr_depth = std::numeric_limits<int>::max();
+    
+    int counter = 0;
+    
+    while (dim_v > _MIN_SPATIAL_DIM && dim_u > _MIN_SPATIAL_DIM && counter < max_pyr_depth)
     {
+        counter++;
         
         std::cout << "Creating Depth2DComputer with sizes (" << dim_v << ", " << dim_u << ")" << std::endl;
         
@@ -128,7 +141,8 @@ FineToCoarse<DataType>::FineToCoarse
     }
     
     // The last level should accept all disparity measures
-    m_computers.back()->set_accept_all(true);
+    if (accept_all_last_scale)
+        m_computers.back()->set_accept_all(true);
 }
 
 template<typename DataType>
@@ -295,7 +309,7 @@ void FineToCoarse<DataType>::get_results(Vec<Mat>& out_map_s_v_u_, Vec<Mat>& out
 }
 
 template<typename DataType>
-void FineToCoarse<DataType>::get_coloured_depth_maps(Vec<Mat>& out_plot_depth_s_v_u_, int cv_colormap)
+void FineToCoarse<DataType>::get_coloured_depth_maps(Vec<Mat>& out_plot_depth_s_v_u_, int cv_colormap, bool saturate)
 {
     std::cout << "Plot depth results..." << std::endl;
     
@@ -313,7 +327,7 @@ void FineToCoarse<DataType>::get_coloured_depth_maps(Vec<Mat>& out_plot_depth_s_
     int dim_u = out_map_s_v_u_[0].cols;
     
     ImageConverter_uchar image_converter;
-    image_converter.fit(out_map_s_v_u_[(int)std::round(dim_s/2.0)]);
+    image_converter.fit(out_map_s_v_u_[(int)std::round(dim_s/2.0)], saturate);
 
     for (int s=0; s<dim_s; s++)
     {
@@ -346,7 +360,60 @@ void FineToCoarse<DataType>::get_coloured_depth_maps(Vec<Mat>& out_plot_depth_s_
 }
 
 template<typename DataType>
-void FineToCoarse<DataType>::get_coloured_epi_pyr(Vec<Mat>& out_plot_epi_pyr_p_s_u_, int v, int cv_colormap) {
+void FineToCoarse<DataType>::get_coloured_depth_maps_and_imgs(Vec<Mat>& out_plot_depth_s_v_u_, int cv_colormap, bool saturate)
+{
+    Vec<Mat> tmp;
+    get_coloured_depth_maps(tmp, cv_colormap, saturate);
+    Vec<Mat> epis = m_computers[0]->get_epis();
+    
+    int dim_s = tmp.size();
+    int dim_v = tmp[0].rows;
+    int dim_u = tmp[0].cols;
+    
+    out_plot_depth_s_v_u_.clear();
+    
+    ImageConverter_uchar converter;
+    
+    for (int s=0; s<dim_s; s++)
+    {
+        // Get the corresponding image
+        Mat img = Mat(dim_v, dim_u, epis[0].type());
+        for (int v=0; v<dim_v; v++)
+        {
+            epis[v].row(s).copyTo(img.row(v));
+        }
+        
+        if (s==0)
+            converter.fit(img);
+        
+        converter.copy_and_scale(img, img);
+        
+        if (img.channels() == 1)
+            // Convert to RGB
+            cv::cvtColor(img, img, CV_GRAY2RGB);
+        
+        std::cout << "img: " << img.size() << ", " << rslf::type2str(img.type()) << std::endl;
+        std::cout << "tmp[s]: " << tmp[s].size() << ", " << rslf::type2str(tmp[s].type()) << std::endl;
+        
+        // Concatenate with the depth map
+        if (dim_u > dim_v)
+        {
+            // Concatenate rows
+            cv::vconcat(img, tmp[s], img);
+        }
+        else
+        {
+            // Concatenate cols
+            cv::hconcat(img, tmp[s], img);
+        }
+        
+        out_plot_depth_s_v_u_.push_back(img);
+    }
+}
+
+template<typename DataType>
+void FineToCoarse<DataType>::get_coloured_epi_pyr(Vec<Mat>& out_plot_epi_pyr_p_s_u_, int v, int cv_colormap, bool saturate) 
+{
     
     int m_pyr_size_ = m_computers.size();
     int m_dim_v_orig_ = m_computers[0]->get_depths_s_v_u()[0].rows;
@@ -376,7 +443,7 @@ void FineToCoarse<DataType>::get_coloured_epi_pyr(Vec<Mat>& out_plot_epi_pyr_p_s
         }
         
         if (p == 0)
-            image_converter.fit(tmp);
+            image_converter.fit(tmp, saturate);
         
         image_converter.copy_and_scale(tmp, tmp);
         cv::applyColorMap(tmp, tmp, cv_colormap);
@@ -400,7 +467,7 @@ void FineToCoarse<DataType>::get_coloured_epi_pyr(Vec<Mat>& out_plot_epi_pyr_p_s
 
 
 template<typename DataType>
-void FineToCoarse<DataType>::get_coloured_depth_pyr(Vec<Mat>& out_plot_depth_pyr_p_v_u_, int s, int cv_colormap) {
+void FineToCoarse<DataType>::get_coloured_depth_pyr(Vec<Mat>& out_plot_depth_pyr_p_v_u_, int s, int cv_colormap, bool saturate) {
     
     int m_pyr_size_ = m_computers.size();
     int dim_s = m_computers[0]->get_depths_s_v_u().size();
@@ -416,7 +483,7 @@ void FineToCoarse<DataType>::get_coloured_depth_pyr(Vec<Mat>& out_plot_depth_pyr
         Mat tmp = m_computers[p]->get_depths_s_v_u()[s].clone();
         
         if (p == 0)
-            image_converter.fit(tmp);
+            image_converter.fit(tmp, saturate);
         
         image_converter.copy_and_scale(tmp, tmp);
         cv::applyColorMap(tmp, tmp, cv_colormap);

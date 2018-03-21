@@ -369,7 +369,7 @@ void compute_1D_edge_confidence(
         kernel.setTo(0.0);
         kernel.at<float>(center_index) = 1.0;
         kernel.at<float>(j) = -1.0;
-        cv::filter2D(a_epi.row(a_s), tmp, -1, kernel, tmp_param, 0, cv::BORDER_CONSTANT);
+        cv::filter2D(a_epi.row(a_s), tmp, -1, kernel, tmp_param, 0, cv::BORDER_REFLECT_101);
         
         // Sum square values into edge confidence
         _square_sum_channels_into<DataType>(tmp, a_edge_confidence_u, tmp2);

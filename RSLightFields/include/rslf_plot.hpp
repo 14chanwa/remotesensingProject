@@ -37,7 +37,7 @@ Mat copy_and_scale_uchar
 class ImageConverter_uchar
 {
 public:
-    void fit(const Mat& img);
+    void fit(const Mat& img, bool saturate = true);
     void copy_and_scale(const Mat& src, Mat& dst);
 private:
     double min;

@@ -16,7 +16,8 @@ rslf::Mat rslf::read_img_from_file
     std::string name_we,
     std::string extension,
     int cv_read_mode,
-    bool transpose
+    bool transpose,
+    bool rotate_180
 ) 
 {
     Mat img = cv::imread(path_to_folder + name_we + "." + extension, cv_read_mode);
@@ -32,6 +33,9 @@ rslf::Mat rslf::read_img_from_file
     if (transpose)
         cv::transpose(img, img);
     
+    if (rotate_180)
+        cv::rotate(img, img, cv::ROTATE_180);
+    
     return img;
 }
 
@@ -40,7 +44,8 @@ rslf::Vec<rslf::Mat> rslf::read_imgs_from_folder
     std::string path_to_folder,
     std::string extension,
     int cv_read_mode,
-    bool transpose
+    bool transpose,
+    bool rotate_180
 ) 
 {
     // Get all valid item names in directory
@@ -70,6 +75,9 @@ rslf::Vec<rslf::Mat> rslf::read_imgs_from_folder
         
         if (transpose)
             cv::transpose(img, img);
+        
+        if (rotate_180)
+            cv::rotate(img, img, cv::ROTATE_180);
         
         imgs.push_back(img);
     }

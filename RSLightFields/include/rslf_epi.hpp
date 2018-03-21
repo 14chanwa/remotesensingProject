@@ -26,7 +26,8 @@ Mat build_row_epi_from_imgs
 (
     Vec<Mat> imgs,
     int row,
-    bool transpose = false
+    bool transpose = false,
+    bool rotate_180 = false
 );
 
 /**
@@ -40,7 +41,8 @@ Mat build_row_epi_from_imgs
 Vec<Mat> build_epis_from_imgs
 (
     Vec<Mat> imgs,
-    bool transpose = false
+    bool transpose = false,
+    bool rotate_180 = false
 );
 
 /**
@@ -61,7 +63,8 @@ Mat build_row_epi_from_path
     std::string extension,
     int row,
     int cv_read_mode = CV_LOAD_IMAGE_GRAYSCALE,
-    bool transpose = false
+    bool transpose = false,
+    bool rotate_180 = false
 );
 
 }

@@ -384,7 +384,7 @@ void FineToCoarse<DataType>::get_coloured_depth_maps_and_imgs(Vec<Mat>& out_plot
         }
         
         if (s==0)
-            converter.fit(img);
+            converter.fit(img, false);
         
         converter.copy_and_scale(img, img);
         

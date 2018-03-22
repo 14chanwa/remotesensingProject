@@ -27,6 +27,8 @@
 #define _DISP_SCORE_THRESHOLD 0.1
 #define _PROPAGATION_EPSILON 0.1
 
+#define _BANDWIDTH_KERNEL_PARAMETER 0.2
+
 #define _EDGE_CONFIDENCE_OPENING_TYPE cv::MORPH_ELLIPSE
 #define _EDGE_CONFIDENCE_OPENING_SIZE 1
 
@@ -63,7 +65,7 @@ public:
     {
         par_interpolation_class = new Interpolation1DLinear<DataType>();
         //~ par_interpolation_class = new Interpolation1DNearestNeighbour<DataType>();
-        par_kernel_class = new BandwidthKernel<DataType>(0.2);
+        par_kernel_class = new BandwidthKernel<DataType>(_BANDWIDTH_KERNEL_PARAMETER);
         
         par_edge_score_threshold = _EDGE_SCORE_THRESHOLD;
         par_disp_score_threshold = _DISP_SCORE_THRESHOLD;

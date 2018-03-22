@@ -1,6 +1,7 @@
 \documentclass{article}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc} 
+\PassOptionsToPackage{hyphens}{url}\usepackage[hidelinks]{hyperref}
 %\usepackage[french]{babel}
 \usepackage{charter} 
 \usepackage{graphicx} 
@@ -14,6 +15,12 @@
 \usepackage{mathrsfs}
 \usepackage{amssymb}
 \geometry{hmargin=2.7cm,vmargin=2.5cm}
+
+\usepackage{footnote}
+
+\usepackage{multirow}
+\newcommand{\specialcell}[2][c]{%
+  \begin{tabular}[#1]{@{}c@{}}#2\end{tabular}}
 
 \usepackage{lastpage}
 \usepackage{fancyhdr}
@@ -38,7 +45,7 @@
 
 \usepackage{animate}
 
-\def\thesubsection{\thesection.\alph{subsection}}
+% \def\thesubsection{\thesection.\alph{subsection}}
 
 \makeatletter
 \def\thm@space@setup{%
@@ -93,314 +100,167 @@
 \maketitle
 
 
-\section{Choice of the article and objective}
+\begin{abstract}
+This document describes and implements a depth estimation method using ``light fields'', i.e. dense sets of images captured along a linear path, based on a method originally presented by \cite{art:kim13:lfields}.
+\end{abstract}
 
 
-We first investigated two different articles that describe two different methods for estimating depths maps from videos.
-\begin{itemize}
- \item \cite{art:perez13:tvl1} describes an algorithm that estimates the optical flow given two images using a global optimization scheme minimizing a data attachment term and a regularization using the total variation of the flow. The idea is that the brightness $I$ of single points along their trajectories should be constant in time, leading to the optical flow constraint equation
- \[ \nabla I \cdot \vect{u} + \Dpar{I}{t} = 0 \]
- where $\vect{u}$ is the optical flow (the velocity vector field). The article then introduces a regularization on $\vect{u}$ (its total variation) and reformulates the problem in order to adapt to discrete sequences of images so that the attachent term consists in minimizing some $L^1$ term. In order to solve the subsequent global optimization problem, the authors propose a numerical scheme based on alternate optimization scheme. Finally, the authors investigate the influence of the several parameters of the algorithm -- noticeably the weight $\lambda$ of the data attachment term -- on the precision of the estimation of the optical flow and the sensitivity to noise.
- 
- In our case, the optical flow computed with this algorithm could be interpreted as some disparity measurement. An interesting point is that the computation of the optical flow can be done on any pair of images, even if not rectified.
- 
- \item \cite{art:kim13:lfields} describes a method for computing precise and exhaustive depth maps using ``light fields'', that is a dense set of images captures along a linear path. By concatenating one line of the rectified images together, one obtains an ``epipolar-plane image'' (EPI), in which a single scene point appears as a linear trace which slope is related to its distance to the camera. Thus, by estimating these slopes, one can reconstruct the depth of each point of the scene.
- 
- The authors use very high definition images, so that the article includes several implementation details in order to ensure computational feasibility, both in terms of space (sparse representation of light fields) and computational power. For instance, they prefer local optimization near object boundaries and propagation to nearby areas in a fine-to-coarse approach to global optimization on the whole image. In the end, the method seems relatively fast, precise and robust to inconsistencies and outliers like noise or temporary occlusions.
-\end{itemize}
-
-
-We chose to work on the latter article. The objective of the project is then to implement the method presented by Kim et al. in \cite{art:kim13:lfields} and investigate how it performs with videos taken from SkySat. We will first investigate the case in which the images from the video are pre-rectified. Then we will investigate more complicated situations, for instance increasing the density of the images and considering non-pre-rectified sequences.
-
-
-\section{Sample EPIs from Skysat (step 18)}
-
-
-\paragraph{Test} \verb#test_build_row_epi_skysat_rectified_18.cpp#.
-
-
-We first write codes to compute and display EPIs. We investigate possible artefacts that appear in the EPIs extracted from the rectified images of Skysat, with step $18$.
-
-
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=\epiWidth\textwidth]{images/1519991014186_1st.png}\\
-  \includegraphics[width=\epiWidth\textwidth]{images/1519991014186_epi.png}
-  \caption{Row 600 -- We can see that the cars produce some artefacts.}
-\end{figure}
-
-
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=\epiWidth\textwidth]{images/1519991030012_1st.png}\\
-  \includegraphics[width=\epiWidth\textwidth]{images/1519991030012_epi.png}
-  \caption{Row 380 -- The high building has a very steep slope. The color of some points seem to vary in time (due to changes in illumination and shading). We also note some strong occlusions.}
-\end{figure}
-
-
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=\epiWidth\textwidth]{images/1519991772641_1st.png}\\
-  \includegraphics[width=\epiWidth\textwidth]{images/1519991772641_epi.png}
-  \caption{Row 400 -- The specular reflexions produce artefacts.}
-\end{figure}
-
-
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=\epiWidth\textwidth]{images/1519992108606_1st.png}\\
-  \includegraphics[width=\epiWidth\textwidth]{images/1519992108606_epi.png}
-  \caption{Row 920 -- The shadows produce empty black zones.}
-\end{figure}
-
+\tableofcontents
 
 \clearpage
-\section{First rough estimation of the disparities}
+\section{Description of the probem and setup}
 
 
-\paragraph{Principle} We apply a very simplified version of the first step of the ``fine to coarse'' approach of \cite{art:kim13:lfields}: we take some EPI $E$ corresponding to a fixed $v$, which dimensions are $S$ along the rows and $U$ along the columns. We work only on one line of this EPI (the center line, at $\widehat{s} = S / 2$. Let $d_\text{list} = \left\{d_1, \cdots, d_D \right\}$ be a search set of disparities. We compute the set of radiances $\mathcal{R}$ for all couples $(u, d)$:
-\[ \mathcal{R}(u, d) = \left\{ E(u + (\widehat{s} - s) d, s) \; | \; s = 0 \cdots S-1 \right\}. \]
+
+In \cite{art:kim13:lfields}, Kim et al. describe a method for computing precise and exhaustive depth maps using ``light fields'', i.e. dense sets of images captured along a linear path. By concatenating one line of the rectified images together, one obtains an ``epipolar-plane image'' (EPI), in which a single scene point appears as a linear trace which slope depends directly on its distance to the camera. Thus, by estimating these slopes, one can reconstruct the disparity of each point of the scene. Using camera parameters, one can then reconstruct the depth of each point from the measured disparity. This method is presented in Figure \ref{drawing:light_fields}.
+
+
+\begin{figure}[ht]
+\centering
+ \includegraphics[width=0.6\textwidth, trim=2cm 8cm 2cm 3cm, clip]{drawings/light_fields.eps}
+ \caption{Light field capture process. Top: a camera captures the scene along a linear path. Middle: by concatenating the images, one obtains a pile of images with spatial dimensions $(v, u)$ and temporal dimension $s$. Bottom: by slicing along a single row $v$ (in red), one obtains an EPI (epipolar-plane image, along dimensions $(s, u)$) in which single points in the scene create a linear trace.}
+ \label{drawing:light_fields}
+\end{figure}
+
+
+Some real examples of EPIs are presented in Figure \ref{fig:exepi}. Compared to using only pairs of images, proceeding with light fields for stereo reconstruction could enable more precise depth estimations and natural ways to handle occlusions (since an object might be occluded only on some frames and not others). Compared to direct 3D point acquisition using 3D scanners, the method should prove faster (one only has to capture the images and may leave the computation of the actual depth map for later) and more resilient to occlusions for instance (since the camera viewpoint changes, the occlusions may also change). A downside of this method is that it proves computationally expensive. This initially limits its application to low resolution images. The method presented by \cite{art:kim13:lfields} tackle this particular issue.
+
+
+The authors use very high definition images -- the article thus describe several implementation details in order to ensure computational feasibility, both in terms of space (sparse representation of light fields) and computational power. For instance, they prefer local optimization near object boundaries and propagation to nearby areas in a fine-to-coarse approach to global optimization on the whole image. In the end, the method seems relatively fast, precise and robust to inconsistencies and outliers.
+
+
+The goal of this project is to adapt the method proposed by Kim and al., that they tested on urban landscapes with mainstream cameras, to the context of satellite images. It should noted that the case of rectified satellite images correspond to case of a set of images taken along a linear path such that the ground is pushed to the infinity (thus its disparity should be zero). We chose not to focus on GPU implementation and memory management and choose to proceed with mildly high resolution images to ensure computational feasibility.
+
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\epiWidth\textwidth]{images/1519991772641_1st.png}\\
+  \includegraphics[width=\epiWidth\textwidth]{images/1519991772641_epi.png}\\
+  \includegraphics[width=\epiWidth\textwidth]{images/1521725699383_1st.png}\\[0.5cm]
+  \includegraphics[width=\epiWidth\textwidth]{images/1521725699383_epi.png}
+  \caption{Sample EPIs from SkysatLR18 (top) and MansionLR (bottom) datasets. We see that individual points leave a linear trace in the temporal dimension and that occlusions change over time.}
+  \label{fig:exepi}
+\end{figure}
+
+
+\section{Description of the method}
+
+
+\subsection{Disparity estimation from EPIs on confident points}
+
+
+\paragraph{Principle} The main idea is, given a list of candidate disparities, to select the best slope for each point at which a confident measure can be done. Given a single line of an EPI, one first computes a confidence score. Then, for each confident point, one select the slope such that pixel radiances on the resulting line are the most densely distributed around a given mean radiance. This process is robust to occlusions.
+
+
+\paragraph{Details} Let us consider some EPI $E$ corresponding to a fixed $v$, which dimensions are $s$ along the rows and $u$ along the columns. We work only on one line of this EPI at a time (beginning with the center line at $\widehat{s} = s_{\max} / 2$).
+
+
+
+\begin{figure}[ht]
+\centering
+ \includegraphics[width=1.0\textwidth, trim=0.5cm 26cm 2.5cm 1cm, clip]{drawings/depth_estimation.pdf}
+ \caption{Disparity estimation process. Left: we select a row $\widehat{s}$. Middle: given a column $u$, we test several candidate $d$'s and select the one with the highest score $S(u, d)$. Right: we propagate the disparity along the temporal dimension for points belonging to  a confident edge, then repeat the process along each column $u$, and for every value $\widehat{s}$ if $d(\widehat{s}, u)$ was not computed yet.}
+ \label{drawing:depth_estimation}
+\end{figure}
+
+
+
+To each point, we define an edge confidence measure $C_e$ such that
+\begin{align}
+ C_e (\widehat{s}, u) &= \sum_{u' \in \mathcal{N}_{C_e}(\widehat{s}, u)} \norm{E(\widehat{s}, u) - E(\widehat{s}, u')}^2. 
+\end{align}
+This measures diversity in the radiances of the image along a small linear window $\mathcal{N}_{C_e}(\widehat{s}, u)$ around the point $(\widehat{s}, u)$. It should be high on edges that show great color transitions and low on flat surfaces. The process is illustrated in Figure \ref{drawing:fine_to_coarse}.
+
+
+The disparity estimation process is detailed in Figure \ref{drawing:depth_estimation}. Let $d_\text{list} = \left\{d_1, \cdots, d_D \right\}$ be a set of candidate disparities. We compute the set of radiances $\mathcal{R}$ of values of $E$ along the line centered on $u$ of slope $d$, for all confident couples $(u, d)$, i.e. at points $(\widehat{s}, u)$ such that $C_e(\widehat{s}, u) > \varepsilon_{C_e}$:
+\begin{align} 
+\mathcal{R}(u, d) &= \left\{ E(u + (\widehat{s} - s) d, s) \; | \; s = 0 \cdots S-1 \right\}.
+\end{align}
 
 We then compute a score $S(u, d)$ defined as:
-\[ S(u, d) = \frac{1}{\abs{\mathcal{R}(u, d)}} \sum_{\mathbf{r} \in \mathcal{R}(u, d)} K(\mathbf{r} - \overline{\mathbf{r}})\]
-where $\mathbf{r}$ can be a float, or in the case of the images of the mansion, a tricolor vector, and $K$ is a ``kernel''. We choose the kernel presented in the article, i.e.
-\[ K(\mathbf{r}) = \left\{ 
+\begin{align} 
+S(u, d) = \frac{1}{\abs{\mathcal{R}(u, d)}} \sum_{\mathbf{r} \in \mathcal{R}(u, d)} K(\mathbf{r} - \overline{\mathbf{r}})
+\end{align}
+where $\mathbf{r}$ is a value $E(\cdot, \cdot)$, $\overline{\mathbf{r}}$ is some mean radiance value described hereafter, and $K$ is a ``kernel''. We choose the kernel presented in the article, i.e.
+\begin{align}
+K(\mathbf{r}) = \left\{ 
 \begin{array}{l}
 1 - \norm{\mathbf{r} / h}^2 \qquad \text{if $\norm{\mathbf{r} / h} < 1$} \\
 0 \qquad \text{else}                            
 \end{array} \right. .
-\]
-We name this kernel the ``bandwidth kernel'' (and we take $h = 0.2$ arbitrarily for now).
+\end{align}
+We name this kernel the ``bandwidth kernel'' (where $h$ is a parameter). Its value is $0$ when $\norm{\mathbf{r}} \rightarrow +\infty$ and $1$ for $\norm{\mathbf{r}} \rightarrow 0$. Its role is to select $\mathbf{r}$ values that are reasonably near zero.
 
 $\overline{\mathbf{r}}$ is a parameter that depends on $(u, d)$: following the article, we perform a truncated mean-shift algorithm (10 iterations), with $\overline{\mathbf{r}}_0 = E(u, \widehat{s})$ and
-\[ \overline{\mathbf{r}} \leftarrow \frac{\sum_{\mathbf{r} \in \mathcal{R}(u, d)} K(\mathbf{r} - \overline{\mathbf{r}}) \mathbf{r}}{\sum_{\mathbf{r} \in \mathcal{R}(u, d)} K(\mathbf{r} - \overline{\mathbf{r}})}\]
-prior to the computation of $S(u, d)$.
-
-Finally, for each $u$, we select the $d$ with the best score. We discard scores $< 0.01$ ; if no score is available, then we take $d=0$. We apply a linear median filter (along the $u$ dimension only for now) on the resulting values $d$ (we choose a filter size of $5$).
-
-We propagate the disparities from $\widehat{s}$ to the other $s$ simply by drawing the depths along the lines $u + (\widehat{s} - s)d$ and respecting the occlusions (a point with higher disparity will be ``occluding'' a point with a lesser disparity).
+\begin{align} 
+\overline{\mathbf{r}} \leftarrow \frac{\sum_{\mathbf{r} \in \mathcal{R}(u, d)} K(\mathbf{r} - \overline{\mathbf{r}}) \mathbf{r}}{\sum_{\mathbf{r} \in \mathcal{R}(u, d)} K(\mathbf{r} - \overline{\mathbf{r}})}
+\end{align}
+prior to the computation of $S(u, d)$, initializing with $\overline{\mathbf{r}} = E(\widehat{s}, u)$. The expected result is that $\overline{\mathbf{r}}$ will shift to the mean of the closest blob of radiances near $E(\widehat{s}, u)$, ignoring the values that are too far from this value (that are expected to be occlusions).
 
 
-\paragraph{Technical difficulties} A line defined by $(u + (\widehat{s} - s) d, s)$ will very certainly end up going out of the image. Moreover, these coordinates are not integer coordinates. We thus take the following decisions:
+\paragraph{Technical difficulties} A line defined by $(u + (\widehat{s} - s) d, s)$ will very certainly have non-integer coordinates or go out of the image boundaries. We thus take the following decisions:
 \begin{itemize}
  \item Values outside of the image are considered \emph{nan} and not taken into account in $\mathcal{R}(u, d)$.
- \item We have yet to decide on some proper interpolation method for computing non-integer values of $E$. For now, we choose a simple linear interpolation along the line $E(u, \cdot)$.
- \item The complexity of the algorithm increases quite a bit with the dimensions of the image. We might implement the algorithms using GPUs, but now we use tricks like OpenMP.
+ \item We have yet to decide on some proper interpolation method for computing non-integer values of $E$, for instance linear interpolation along the line $E(u, \cdot)$.
 \end{itemize}
-We also created a template code so as to be able to adapt to different data types for $E$ (e.g. \verb#float#, \verb#uint#, \verb#cv::Vec3b#...).
 
 
-\paragraph{Results} We choose $d_\text{list} = \left\{-2.0, -2.05, \cdots, 3.95, 4.0\right\}$. We end up with the following results. We expect to improve these using confidence scores $C_e$ as in the article for instance, and computing depths for more $s$ than only $\widehat{s}$.
+\subsection{Depth propagation along temporal axis}
 
 
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=\epiWidth\textwidth]{images/1520204861279_epi.png}\\
-  \includegraphics[width=\epiWidth\textwidth]{images/1520204861279_epi_colored.png}
-  \caption{Skysat rectified, row 380. We note some parasite extreme lines. We interpret these as parasite low-confidence slopes.}
-\end{figure}
-
-
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=\epiWidth\textwidth]{images/1520205010590_epi.png}\\
-  \includegraphics[width=\epiWidth\textwidth]{images/1520205010590_epi_colored.png}
-  \caption{Skysat rectified, row 600. Cars do not seem to make a huge difference, but homogeneous zones are not well handled.}
-\end{figure}
-
-
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=\epiWidth\textwidth]{images/1520205074004_epi.png}\\
-  \includegraphics[width=\epiWidth\textwidth]{images/1520205074004_epi_colored.png}
-  \caption{Skysat rectified, row 920. As expected, the algorithm does not work well in the shadows.}
-\end{figure}
-
-
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=\epiWidth\textwidth]{images/1520202945623_epi.png}\\
-  \includegraphics[width=\epiWidth\textwidth]{images/1520202945623_epi_colored.png}
-  \caption{Mansion sample (undersized to $1146\times 720$), row 380.}
-\end{figure}
-
-
-\clearpage
-\section{After scaling, confidence threshold}
-
-
-In fact, it is better to scale the images between $0.0$ and $1.0$ before processing. We do the following:
-\begin{itemize}
- \item If the provided image is of type \verb#uchar#, i.e. values are in $0 \cdots 255$, then we scale by $255$.
- \item Else, we scale by the max over all the channels.
-\end{itemize}
-Results are much cleaner (Figures \ref{fig:wscaling:skysat:380}, \ref{fig:wscaling:mansion:380}).
-
-
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=\epiWidth\textwidth]{images/1520334265034_epi.png}\\
-  \includegraphics[width=\epiWidth\textwidth]{images/1520334265034_epi_colored.png}
-  \caption{Skysat rectified, with scaling, row 380.}
-  \label{fig:wscaling:skysat:380}
-\end{figure}
-
-
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=\epiWidth\textwidth]{images/1520334290628_epi.png}\\
-  \includegraphics[width=\epiWidth\textwidth]{images/1520334290628_epi_colored.png}
-  \caption{Mansion sample, with scaling, (undersized to $1146\times 720$), row 380.}
-  \label{fig:wscaling:mansion:380}
-\end{figure}
-
-
-If we add the confidence measures: confidence edge $C_e$ and final confidence $C_d$ such that:
-\begin{align}
- C_e (u, \widehat{s}) &= \sum_{u' \in \mathcal{N}(u, \widehat{s})} \norm{E(u, \widehat{s}) - E(u', \widehat{s})}^2 \\
- C_d (u, \widehat{s}) &= C_e (u, \widehat{s}) \norm{\max_d S(u, d) - \mathrm{mean}_d S(u, d)}
-\end{align}
-we obtain the results presented in Figures \ref{fig:wconf:skysat:380}, \ref{fig:wconf:mansion:380}. We disable the median filter along d's for these tests.
-
-
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=\epiWidth\textwidth]{images/1520354672022_epi.png}\\
-  \includegraphics[width=\epiWidth\textwidth]{images/1520354672022_epi_colored.png}
-  \caption{Skysat rectified, with scaling and score threshold, no median filter, row 380.}
-  \label{fig:wconf:skysat:380}
-\end{figure}
-
-
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=\epiWidth\textwidth]{images/1520354635991_epi.png}\\
-  \includegraphics[width=\epiWidth\textwidth]{images/1520354635991_epi_colored.png}
-  \caption{Mansion sample, with scaling and score threshold, no median filter, (undersized to $1146\times 720$), row 380.}
-  \label{fig:wconf:mansion:380}
-\end{figure}
-
-
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=0.35\textwidth]{images/1520423162502_dmap.png}
-  \includegraphics[width=0.7\textwidth]{images/1520438877175_dmap.png}
-  \caption{Sample outputs depth maps where $C_e > 0.02$ (mansion [626 seconds] and Skysat [51 seconds] with 120 tested $d$ values between $-2.0$ and $4.0$, no median filter)}
-  \label{fig:wconf:piles}
-\end{figure}
-
-
-\clearpage
-\section{Selective median filter}
-
-We implement and apply a median filter on the resulting disparity map $D$ along dimensions $u, v$ such that in the end, for a point $(u, v)$ such that $C_e (u, v) > 0.02$, the selected value $d_{u, v}$ is the median value of the set:
-\[ \left\{ d_{u', v'} \; | \; (u', v') \in \mathcal{N}_{u, v}, \; C_e(u', v') > 0.02, \; \norm{E_{v}(\widehat{s}, u) - E_{v'}(\widehat{s}, u')} < 0.1 \right\}.\]
-
-$\mathcal{N}_{u, v}$ is a neighbourhood of $(u, v)$ -- we select a square neighbourhood centered on $(u, v)$, of overall size $k$. The results are presented in Figures x, x.
-
-
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=0.3\textwidth]{images/1520620453023_dmap.png}
-  \includegraphics[width=0.6\textwidth]{images/1520620380080_dmap.png} \\
-  
-  \includegraphics[width=0.3\textwidth]{images/1520620453023_epi_colored.png}
-  \includegraphics[width=0.6\textwidth]{images/1520618708656_epi_colored.png}
-  \caption{Disparity map and sample epi after median filter, $k=1$ (no median)}
-  \label{fig:median:1}
-\end{figure}
-
-
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=0.3\textwidth]{images/1520617477650_dmap.png}
-  \includegraphics[width=0.6\textwidth]{images/1520618100513_dmap.png} \\
-  
-  \includegraphics[width=0.3\textwidth]{images/1520617477650_epi_colored.png}
-  \includegraphics[width=0.6\textwidth]{images/1520618100513_epi_colored.png}
-  \caption{Disparity map and sample epi after median filter, $k=5$}
-  \label{fig:median:5}
-\end{figure}
-
-
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=0.3\textwidth]{images/1520617394231_dmap.png}
-  \includegraphics[width=0.6\textwidth]{images/1520618708656_dmap.png} \\
-  
-  \includegraphics[width=0.3\textwidth]{images/1520617394231_epi_colored.png}
-  \includegraphics[width=0.6\textwidth]{images/1520618708656_epi_colored.png}
-  \caption{Disparity map and sample epi after median filter, $k=11$}
-  \label{fig:median:11}
-\end{figure}
-
-
-\clearpage
-\section{Disparity propagation}
-
-
-After computing the depths for the points $u$ with some fixed $(v, \widehat{s} = \max s / 2)$, and applying a median filter of size 5 along the $(u, v)$ axis, we apply the disparity propagation along the $s$ axis, using the following rules: we propagate the optimal disparity $d(u, \widehat{s})$ computed at $(u, \widehat{s})$ to a point $(u', s')$ (where $u' = u + (\widehat{s} - s') \times d(u, \widehat{s})$) if:
+For each $u$, we select the $d$ with the best score. We then propagate the disparities from $\widehat{s}$ to the other $(s', u')$ simply by drawing the depths along the lines $u' = u + (\widehat{s} - s)d$ if 
 \begin{enumerate}
- \item $C_e(u, s) > 0.02$
- \item $C_e(u', s') > 0.02$
- \item $\norm{E(u', s') - E(u, \widehat{s})} < 0.1$
+ \item $C_e(\widehat{s}, u) > \varepsilon_{C_e}$
+ \item $C_e(s', u') > \varepsilon_{C_e}$
+ \item $\norm{E(s', u') - E(\widehat{s}, u)} < \varepsilon_E$
 \end{enumerate}
+These points $(s', u')$ are marked as computed and not considered anymore. The algorithm then proceeds to new values $s$ that are close to $\widehat{s}$ (i.e. $s_{\max} / 2 + 1$, $s_{\max} / 2 - 1$, ...) and repeat the process.
 
 
-In the article, the first rule would have rather been $C_d(u, s) > 0.1$. Yet, we found that in our examples, $C_d$ is very low for most of the points, resulting in almost no disparity being propagating, even with a low threshold on $C_d$. Thus, we accept to propagate depths at points at which the confidence in the value $d$ is low. This is to be investigated further.
+After these steps, we obtain disparity values for each point such that $C_e$ was high enough, the other points having been masked.
 
 
-After propagating the depths, following the article, we compute the remaining unknown depths at points $(u, s)$ where $C_e(u, s) > 0.02$ for increasing $\abs{\widehat{s} - s}$, and propagate at each step. This leads to decreased computation times:
-\begin{itemize}
- \item For the Skysat sequence, instead of ~4500 seconds (if no propagation is done), the process takes 294 seconds.
- \item For the downsampled mansion sequence, instead of ~51000 seconds, the process takes 7371 seconds.
-\end{itemize}
+\paragraph{Differences with the article} It should be noted that in \cite{art:kim13:lfields}, Kim et al. handle the situation in which a point with high edge confidence $C_e$ could have a bad disparity estimation $d$. This could for instance happen if the point is in the intersection of two lines of the same color with different slopes in the EPI. In order to do so, the authors define a disparity confidence score
+\begin{align}
+ C_d (\widehat{s}, u) &= C_e (\widehat{s}, u) \norm{\max_d S(u, d) - \mathrm{mean}_d S(u, d)}
+\end{align}
+and only retain and propagate $d$'s corresponding to points with a high $C_d$. We chose not to use this conservative criterion since it decreases significantly the number of valid estimations and tend to erase mildly sharp borders on buildings in our satellite images.
 
 
-Some sample frames are presented in Figure \ref{fig:propagation}. Note that we corrected a bug that perturbated the disparity computation around the borders in the mansion sequence.
+\subsection{Selective median filtering}
 
 
-We also performed a propagation using the criterion $C_d(u, s) > 0.1$. This criterion depends on the magnitude of the scores $S$ ; and thus, it is dependant on the values of the EPI. We normalized the image (the different channels take values in $[0, 1]$, yet the criterion is still dependant on the number of channels ; the equivalent threshold on the Skysat sequence would be different). This led to the Figure \ref{fig:propagation:disp} after a computation time of 34164 seconds. It seems that there is more noise than on the previous experiment, but also that the points that are correct have a more precise $d$ estimation.
+We repeat the process for all the lines $v$ -- since the process is independant for each $v$, this operation can be simultaneous.
 
 
-It also seems that contrary to the mansion image, there seem to be some more blur or less contrast on the images of the Skysat sequence, that result in less points having a high $C_d$ (i.e. the values $d$ computed are likely to be imprecise on this particular sequence).
+When all lines $v$ have been computed, we apply a median filter on the resulting disparity map along dimensions $(v, u)$ such that in the end, for a point $(v, u)$ such that $C_e (v, u) > 0.02$, the selected value $d_{v, u}$ is the median value of the set:
+\[ \left\{ d (v', u') \; | \; (v', u') \in \mathcal{N}_\text{sel. median}(v, u), \; C_e(v', u') > \varepsilon_{C_e}, \; \norm{E_{v}(\widehat{s}, u) - E_{v'}(\widehat{s}, u')} < \varepsilon_{E} \right\}.\]
+
+$\mathcal{N}_\text{sel. median}(v, u)$ is a neighbourhood of $(v, u)$. The expected result is to filter speckles among points of the same color that are also close one to the other. After this step, all the disparities have been computed and filtered in points $(s, v, u)$ such that $C_e(s, v, u)$ was high enough.
 
 
+\subsection{Fine-to-coarse approach}
+
+
+The approach presented in \cite{art:kim13:lfields} is based on a ``fine to coarse'' approach. It consists in making confident disparity estimations in the images for different spatial scales $(u, v)$ and recombining these disparities in order to reconstruct a complete disparity map at the finest scale.
+
+
+In order to proceed to a multi-scale analysis, the idea is to use the regularizing effect of downsampling. We thus create a pyramid of downsampled images, with coarser and coarser disparity estimations. The estimations at the finest scale are likely to be made on small objects or contours, whereas the estimations at the coarser scales will be related to plain surfaces for instance. This process is presented in Figure \ref{drawing:fine_to_coarse}.
 
 
 
 \begin{figure}[ht]
-  \centering
-  \includegraphics[width=0.3\textwidth]{images/1520867757275_dmap_025.png}
-  \includegraphics[width=0.6\textwidth]{images/1520877118843_dmap_025.png} \\
-  
-  \includegraphics[width=0.3\textwidth]{images/1520867757275_epi_colored.png}
-  \includegraphics[width=0.6\textwidth]{images/1520877118843_epi_colored.png}
-  \caption{Disparity map and sample epi after median filter, $k=5$, and propagation. The disparity maps correspond to frame 25, while the propagation originated from frame 50. The sample epis correspond to the midline of the image.}
-  \label{fig:propagation}
+\centering
+ \includegraphics[width=1.0\textwidth, trim=0cm 11cm 0cm 1cm, clip]{drawings/fine_to_coarse.pdf}
+ \caption{Fine to coarse approach.}
+ \label{drawing:fine_to_coarse}
 \end{figure}
 
 
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=0.6\textwidth]{images/1520973007982_dmap_025.png}
-  \caption{Disparity map (frame 25), when popagating only the points with $C_d > 0.1$ and displaying only points with $C_d > 0.1$. We see that there seem to be more outliers than on the previous Figure (and less points drawn overall) ; it might be that the propagation is a way of ensuring consistency between frames, and thus reducing this effect. We can assume nonetheless than the $d$ values are more precise on the points on the wall of the mansion than on the previous Figure.}
-  \label{fig:propagation:disp}
-\end{figure}
 
-%\begin{figure}[ht]
-%  \centering
-% \animategraphics[autoplay,loop,width=0.5\textwidth,controls]{5}{animate_skysat/1520867757275_dmap_}{000}{100}
-%\end{figure}
-
-
-\clearpage
-\section{Fine to coarse}
-
-
-\paragraph{Downsampling} We then implement the method described in Kim et al. to progressively fill the zones left blank by our confidence criterion (we choose here $C_e > 0.1$ ; one could apply $C_d > \varepsilon$ like in the article but this is significantly more computationally intensive). This approach is similar to building a pyramid of images, and writes as follow:
+\paragraph{Downsampling} We progressively fill the zones left blank by our confidence criterion (we choose here $C_e > \varepsilon_{C_e}$ ; one could apply $C_d > \varepsilon_{C_d}$ like in the article but this is significantly more conservative). This approach is similar to building a pyramid of images, and writes as follow:
 \begin{enumerate}
- \item Let us consider a pile of images at the scale $p$ (the ``stair $p$'' of the pyramid). One first applies a Gaussian filter in the spatial dimensions $(v, u)$. We chose a $7\times 7$ filter, as in the article.
+ \item Let us consider a pile of images at the scale $p$ (the ``stair $p$'' of the pyramid). One first applies a Gaussian filter in the spatial dimensions $(v, u)$ with window $\mathcal{N}_\text{downsampling}$.
  \item We then downsample the images by taking one line over 2 in the spatial dimensions $(v, u)$ ; the resolution along the temporal dimension $s$ is left unchanged. This is the stair $p+1$ of the pyramid of images.
  \item Then, we use the confident disparities computed at the scale $p$ in order to derive disparity bounds for the scale $p+1$. This step is not described precisely in the article ; we chose, given a point $(s, v', u')$ in $p+1$, to select the 2 pairs of points $(s, v, [u_1^1, u_2^1])$ $(s, v+1, [u_1^2, u_2^2])$ where $v = 2 v'$ and $u_1^1$, $u_1^2$ are the first confident points at the left and right of $u=2u'$. The bounds for $(s, v', u')$ will be the $\min$ and the $\max$ disparities among these points.
  \item We then perform a disparity computation along all axis as described in the preceding section.
@@ -408,122 +268,143 @@ It also seems that contrary to the mansion image, there seem to be some more blu
 The pyramid process is represented in Figure \ref{fig:pyramid}. The confidence score will be less and less restrictive due to the regularization effect of downsampling.
 
 
-\paragraph{Going up to the finest scale} In order to retrieve the disparity map to the finest scale $p=0$, one then proceeds the other way round:
-\begin{enumerate}
- \item Starting at $p=p_{\max}$, one upscales the disparity estimates (with bilinear interpolation) and the validity mask $M_e = \{C_e > 0.1\}$ (with nearest neighbour interpolation).
- \item Consider the disparity map at scale $p-1$. Fill the blank zones of this disparity map using the upscaled disparity map from $p$ at confident points from $M_e$.
-\end{enumerate}
-
-
-
-In the end, following the paper, we also make the following refinements:
-\begin{itemize}
- \item We apply a median $3\times 3$ filter on the final disparity map estimates.
- \item When establishing the map of valid points $M_e = \{C_e > 0.1\}$, one can perform a mathematical opening in order to remove falsely confident points. We find out that this degrades the performance of the algorithm on non-sharp images such as the Skysat sequence, so we chose to deactivate this feature.
-\end{itemize}
-
-
-\begin{figure}[ht]
+\begin{figure}[th]
   \centering
-  \includegraphics[width=0.3\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_depth_000.png}
-  \includegraphics[width=0.15\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_depth_001.png}
-  \includegraphics[width=0.075\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_depth_002.png}
-  \includegraphics[width=0.0375\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_depth_003.png}
-  \includegraphics[width=0.01875\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_depth_004.png}
-  \includegraphics[width=0.009375\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_depth_005.png} \\
-  \includegraphics[width=0.3\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_epi_000.png}
-  \includegraphics[width=0.15\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_epi_001.png}
-  \includegraphics[width=0.075\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_epi_002.png}
-  \includegraphics[width=0.0375\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_epi_003.png}
-  \includegraphics[width=0.01875\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_epi_004.png}
-  \includegraphics[width=0.009375\textwidth]{animate_skysat_ftc4/pyr/1521568225606_pyr_epi_005.png}
+  \includegraphics[width=0.3\textwidth]{images/pyr/1521568225606_pyr_depth_000.png}
+  \includegraphics[width=0.15\textwidth]{images/pyr/1521568225606_pyr_depth_001.png}
+  \includegraphics[width=0.075\textwidth]{images/pyr/1521568225606_pyr_depth_002.png}
+  \includegraphics[width=0.0375\textwidth]{images/pyr/1521568225606_pyr_depth_003.png}
+  \includegraphics[width=0.01875\textwidth]{images/pyr/1521568225606_pyr_depth_004.png}
+  \includegraphics[width=0.009375\textwidth]{images/pyr/1521568225606_pyr_depth_005.png} \\
+  \includegraphics[width=0.3\textwidth]{images/pyr/1521568225606_pyr_epi_000.png}
+  \includegraphics[width=0.15\textwidth]{images/pyr/1521568225606_pyr_epi_001.png}
+  \includegraphics[width=0.075\textwidth]{images/pyr/1521568225606_pyr_epi_002.png}
+  \includegraphics[width=0.0375\textwidth]{images/pyr/1521568225606_pyr_epi_003.png}
+  \includegraphics[width=0.01875\textwidth]{images/pyr/1521568225606_pyr_epi_004.png}
+  \includegraphics[width=0.009375\textwidth]{images/pyr/1521568225606_pyr_epi_005.png}
   \\[0.5cm]
-  \includegraphics[width=0.3\textwidth]{animate_mansion/pyr/1521576787209_pyr_depth_000.png}
-  \includegraphics[width=0.15\textwidth]{animate_mansion/pyr/1521576787209_pyr_depth_001.png}
-  \includegraphics[width=0.075\textwidth]{animate_mansion/pyr/1521576787209_pyr_depth_002.png}
-  \includegraphics[width=0.0375\textwidth]{animate_mansion/pyr/1521576787209_pyr_depth_003.png}
-  \includegraphics[width=0.01875\textwidth]{animate_mansion/pyr/1521576787209_pyr_depth_004.png}
-  \includegraphics[width=0.009375\textwidth]{animate_mansion/pyr/1521576787209_pyr_depth_005.png}
-  \includegraphics[width=0.0046875\textwidth]{animate_mansion/pyr/1521576787209_pyr_depth_006.png}\\
-  \includegraphics[width=0.3\textwidth]{animate_mansion/pyr/1521576787209_pyr_epi_000.png}
-  \includegraphics[width=0.15\textwidth]{animate_mansion/pyr/1521576787209_pyr_epi_001.png}
-  \includegraphics[width=0.075\textwidth]{animate_mansion/pyr/1521576787209_pyr_epi_002.png}
-  \includegraphics[width=0.0375\textwidth]{animate_mansion/pyr/1521576787209_pyr_epi_003.png}
-  \includegraphics[width=0.01875\textwidth]{animate_mansion/pyr/1521576787209_pyr_epi_004.png}
-  \includegraphics[width=0.009375\textwidth]{animate_mansion/pyr/1521576787209_pyr_epi_005.png}
-  \includegraphics[width=0.0046875\textwidth]{animate_mansion/pyr/1521576787209_pyr_epi_006.png}
-  \caption{Pyramid of downsampled disparity maps and sample EPIs (after disparity computation) for the Skysat sequence with step 18 (top) and mansion sequence (bottom).}
+  \includegraphics[width=0.3\textwidth]{images/pyr/1521576787209_pyr_depth_000.png}
+  \includegraphics[width=0.15\textwidth]{images/pyr/1521576787209_pyr_depth_001.png}
+  \includegraphics[width=0.075\textwidth]{images/pyr/1521576787209_pyr_depth_002.png}
+  \includegraphics[width=0.0375\textwidth]{images/pyr/1521576787209_pyr_depth_003.png}
+  \includegraphics[width=0.01875\textwidth]{images/pyr/1521576787209_pyr_depth_004.png}
+  \includegraphics[width=0.009375\textwidth]{images/pyr/1521576787209_pyr_depth_005.png}
+  \includegraphics[width=0.0046875\textwidth]{images/pyr/1521576787209_pyr_depth_006.png}\\
+  \includegraphics[width=0.3\textwidth]{images/pyr/1521576787209_pyr_epi_000.png}
+  \includegraphics[width=0.15\textwidth]{images/pyr/1521576787209_pyr_epi_001.png}
+  \includegraphics[width=0.075\textwidth]{images/pyr/1521576787209_pyr_epi_002.png}
+  \includegraphics[width=0.0375\textwidth]{images/pyr/1521576787209_pyr_epi_003.png}
+  \includegraphics[width=0.01875\textwidth]{images/pyr/1521576787209_pyr_epi_004.png}
+  \includegraphics[width=0.009375\textwidth]{images/pyr/1521576787209_pyr_epi_005.png}
+  \includegraphics[width=0.0046875\textwidth]{images/pyr/1521576787209_pyr_epi_006.png}
+  \caption{Pyramid of downsampled disparity maps and sample EPIs (after disparity computation) for the Skysat sequence with step 18 (SkysatLR18, top) and mansion sequence (MansionLR, bottom).}
   \label{fig:pyramid}
 \end{figure}
 
 
-\paragraph{Results and limitations} The fact that we define new disparity bounds at each step ensures the coherence of the depth estimations when the depth at the boundaries of an object have been computed. Results for the Skysat and mansion datasets are presented in Figure \ref{fig:finetocoarse:res}. It should be noted that the best estimates are made for frames near $\widehat{s} = \dim s / 2$ as the propagation process might end up perturbating the estimates. This is due to changes in the image such as:
+\paragraph{Going back up to the finest scale} In order to retrieve the disparity map to the finest scale $p=0$, one then proceeds the other way round:
+\begin{enumerate}
+ \item Starting at $p=p_{\max}$, one upscales the disparity estimates (with bilinear interpolation) and the validity mask $M_e = \{C_e > \varepsilon_{C_e}\}$ (with nearest neighbour interpolation).
+ \item Consider the disparity map at scale $p-1$. Fill the blank zones of this disparity map using the upscaled disparity map from $p$ at confident points from $M_e$.
+\end{enumerate}
+
+
+In the end, following the paper, we also make the following refinements:
 \begin{itemize}
- \item New objects appearing, objects disappearing.
- \item Objects changing shape (for instance, the walls of a building are likely to change shape due to perspective effects).
- \item Global changes in illumination conditions. This is notable in the Skysat dataset.
- \item Shading. This appears to be a great source of errors in the Skysat dataset, as the shadows will be interpreted as rough confident edges, but are not textured, so their depth estimates will be flawed. We decided to remove the shadow areas by setting the pixels with $\norm{E(s, v, u) < 0.05}$ to $C_e = 0$.
- \item Tricky surfaces such as reflective surfaces (the glass surfaces on buildings) will be misinterpreted since they reflect the ground... and thus will have a disparity dependant on the viewpoint of the camera, with a negative sign.
+ \item We apply a median filter on the final disparity map estimates with window $\mathcal{N}_\text{fin. median}$.
+ \item When establishing the map of valid points $M_e = \{C_e > \varepsilon_{C_e}\}$, one can perform a mathematical opening in order to remove falsely confident points. We find out that this degrades the performance of the algorithm on non-sharp images such as the Skysat sequence, so we chose to deactivate this feature.
 \end{itemize}
 
 
-See also the GIFs in the folders \verb#animate_skysat_ftc4# and \verb#animate_mansion#.
+\clearpage
+\section{Results}
+
+
+\subsection{Datasets and parameters}
+
+
+The parameters we used for the following results are presented in Table \ref{table:parameters}. We chose to test our algorithm on the original data of \cite{art:kim13:lfields} along with satellite images taken from a public Skysat video. The datasets are described in Table \ref{table:datasets}.
+
+\begin{table}[ht]
+ \centering
+ \begin{tabular}{|c|l|l|}
+  \hline
+  \textbf{Parameter} & \textbf{Description} & \textbf{Value}\\
+  \hline \hline 
+  $\mathcal{N}_{C_e}$ & $C_e$ computation window. &  Horizontal window of size $9$.\\
+  \hline 
+  $h$ & Bandwith kernel parameter. & 0.2 \\
+  \hline 
+  $\varepsilon_{C_e}$ & Confidence edge threshold. & 0.02 \\
+  \hline 
+  $\varepsilon_E$ & Color difference propagation threshold. & 0.1 \\
+  \hline 
+  $\mathcal{N}_\text{sel. median}$ & Selective median filter window. & Square centered neighbourhood of size $11$. \\
+  \hline 
+  $\mathcal{N}_\text{downsampling}$ & Downsampling gaussian filter window. & Square centered neighbourhood of size $7$.\\
+  \hline 
+  $\mathcal{N}_\text{fin. median}$ & Final median filter window. & Square centered neighbourhood of size $3$.\\
+  \hline
+ \end{tabular}
+ \caption{Values of the parameters used}
+ \label{table:parameters}
+\end{table}
+
+\begin{savenotes}
+\begin{table}[ht]
+ \centering
+ \begin{tabular}{|c|p{7.5cm}|p{2.5cm}|p{2cm}|}
+  \hline
+  \textbf{Dataset} & \textbf{Description} & \textbf{Candidate $d$'s} & \textbf{Runtime (s)}\\
+  \hline \hline 
+  MansionLR & Mansion preprocessed dataset\footnote{\url{http://people.csail.mit.edu/changil/publications/scene-reconstruction-from-high-spatio-angular-resolution-light-fields-siggraph-2013-datasets.html}}, that we resize to a resolution of $1146\times 720$. & $-2:4$ $[120]$ & $8400$\\
+  \hline 
+  SkysatLR18 & Satellite images taken from a public Skysat video\footnote{\url{https://www.youtube.com/watch?v=lKNAY5ELUZY}} that we rectify. We proceeded first with a version downsampled to $540\times 960$ using one frame every $18$ frames. & $-2:4$ $[120]$ & $431$\\
+  \hline 
+  SkysatLR01 & Same as SkysatLR18 but taking every frame. & $-0.5:0.5$ $[120]$ & $143$\\
+  \hline 
+  SkysatHR18 & Same as SkysatLR18 but using the original $1080\times 1920$ resolution. & $-2:4$ $[240]$ & $3003$\\
+  \hline
+ \end{tabular}
+ \caption{Datasets and runtimes. Each dataset sequence is of length $100$ (i.e. $s=0\cdots 99$). Candidate $d$'s are indicated by $\mathrm{range}[\mathrm{values}]$}
+ \label{table:datasets}
+\end{table}
+\end{savenotes}
 
 
 
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=0.3\textwidth]{animate_skysat_ftc4/1521546364721_dmap_025.png}
-  \includegraphics[width=0.3\textwidth]{animate_skysat_ftc4/1521546364721_dmap_050.png}\\[0.5cm]
-  
-  \includegraphics[width=0.45\textwidth]{animate_mansion/1521576787209_dmap_025.png}
-  \includegraphics[width=0.45\textwidth]{animate_mansion/1521576787209_dmap_050.png}
-  \caption{Results on the Skysat with step 18 (top) and mansion (bottom) datasets, for $s=25$ (left) and $s=50=\widehat{s}$ (right). The depth estimates are better near $\widehat{s}$.}
-  \label{fig:finetocoarse:res}
-\end{figure}
+\subsection{Validation on the original dataset}
 
 
-\paragraph{On a sequence with small slopes}
+We perform the depth estimation on one of the original datasets of Kim et al. (MansionLR). The results are presented in Figures xxx. 
 
 
-We investigate the performance of the algorithm with very small slopes with a sequence of Skysat with slower variations. A sample EPI is presented in Figure \ref{fig:epi:skysat1}. This example is harder since the variations are mostly under the scale of a pixel. We ran the algorithm with a choice of $d_{\min} = -0.5$ to $d_{\max} = 0.5$ and $120$ steps. This led to the results presented in Figure xxx. These results are quite satisfactory given the small slopes to be measured, but show some underestimated slopes on the top of the buildings. We assume these are due to the fact that the disparities are harder to be estimated when undersampling - these may be improved by using better interpolation formulae.
 
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=\epiWidth\textwidth]{images/1521592293547_1st.png}\\
-  \includegraphics[width=\epiWidth\textwidth]{images/1521592293547_epi.png}
-  \caption{Sample EPI from the Skysat sequence with slow variations.}
-  \label{fig:epi:skysat1}
-\end{figure}
+\subsection{Influence of the resolution}
 
 
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=0.3\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_depth_000.png}
-  \includegraphics[width=0.15\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_depth_001.png}
-  \includegraphics[width=0.075\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_depth_002.png}
-  \includegraphics[width=0.0375\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_depth_003.png}
-  \includegraphics[width=0.01875\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_depth_004.png}
-  \includegraphics[width=0.009375\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_depth_005.png} \\
-  \includegraphics[width=0.3\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_epi_000.png}
-  \includegraphics[width=0.15\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_epi_001.png}
-  \includegraphics[width=0.075\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_epi_002.png}
-  \includegraphics[width=0.0375\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_epi_003.png}
-  \includegraphics[width=0.01875\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_epi_004.png}
-  \includegraphics[width=0.009375\textwidth]{animate_skysat_step1/pyr/1521592997433_pyr_epi_005.png}
-  \caption{Pyramid of downsampled disparity maps and sample EPIs (after disparity computation) for the Skysat sequence with step 1.}
-  \label{fig:pyramid:skysat1}
-\end{figure}
+We compute the disparity estimations on the same frame ($50$, center frame)
 
 
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=0.3\textwidth]{animate_skysat_step1/1521592997433_dmap_025.png}
-  \includegraphics[width=0.3\textwidth]{animate_skysat_step1/1521592997433_dmap_050.png}
-  \caption{Results on the Skysat sequence with step 1 ($d_{\min} = -0.5$ to $d_{\max} = 0.5$ and $120$ steps) for frames $s=25$ (left) and $\widehat{s}=50$ (right).}
-  \label{fig:finetocoarse:res:skysat1}
-\end{figure}
 
+% \section{Choice of the article and objective}
+% 
+% 
+% We first investigated two different articles that describe two different methods for estimating depths maps from videos.
+% \begin{itemize}
+%  \item \cite{art:perez13:tvl1} describes an algorithm that estimates the optical flow given two images using a global optimization scheme minimizing a data attachment term and a regularization using the total variation of the flow. The idea is that the brightness $I$ of single points along their trajectories should be constant in time, leading to the optical flow constraint equation
+%  \[ \nabla I \cdot \vect{u} + \Dpar{I}{t} = 0 \]
+%  where $\vect{u}$ is the optical flow (the velocity vector field). The article then introduces a regularization on $\vect{u}$ (its total variation) and reformulates the problem in order to adapt to discrete sequences of images so that the attachent term consists in minimizing some $L^1$ term. In order to solve the subsequent global optimization problem, the authors propose a numerical scheme based on alternate optimization scheme. Finally, the authors investigate the influence of the several parameters of the algorithm -- noticeably the weight $\lambda$ of the data attachment term -- on the precision of the estimation of the optical flow and the sensitivity to noise.
+%  
+%  In our case, the optical flow computed with this algorithm could be interpreted as some disparity measurement. An interesting point is that the computation of the optical flow can be done on any pair of images, even if not rectified.
+%  
+%  \item \cite{art:kim13:lfields} describes a method for computing precise and exhaustive depth maps using ``light fields'', that is a dense set of images captures along a linear path. By concatenating one line of the rectified images together, one obtains an ``epipolar-plane image'' (EPI), in which a single scene point appears as a linear trace which slope is related to its distance to the camera. Thus, by estimating these slopes, one can reconstruct the depth of each point of the scene.
+%  
+%  The authors use very high definition images, so that the article includes several implementation details in order to ensure computational feasibility, both in terms of space (sparse representation of light fields) and computational power. For instance, they prefer local optimization near object boundaries and propagation to nearby areas in a fine-to-coarse approach to global optimization on the whole image. In the end, the method seems relatively fast, precise and robust to inconsistencies and outliers like noise or temporary occlusions.
+% \end{itemize}
+
+
+% We chose to work on the latter article. The objective of the project is then to implement the method presented by Kim et al. in \cite{art:kim13:lfields} and investigate how it performs with videos taken from SkySat. We will first investigate the case in which the images from the video are pre-rectified. Then we will investigate more complicated situations, for instance increasing the density of the images and considering non-pre-rectified sequences.
 
 \clearpage
 \bibliographystyle{plain}

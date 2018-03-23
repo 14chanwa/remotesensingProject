@@ -5,9 +5,9 @@ This repository implements some depth map estimation algorithm using 3D light fi
 
 
 <p align="center">
-<img src="https://raw.githubusercontent.com/14chanwa/remotesensingProject/master/report/animate_mansion_resized/1520877118843_dmap_050.png" width="800">
+<img src="https://raw.githubusercontent.com/14chanwa/remotesensingProject/master/report/images/SkysatLR18_240_img/1521805051081_dmap_050.png" width="800">
 </p>
-<p align="center"><em>Some sample image after the first step of the pipeline (from the original dataset of Kim et al.)</em></p>
+<p align="center"><em>Some sample satellite image and the computed disparity map</em></p>
 
 
 ## Dependancies

@@ -1,9 +1,7 @@
-#include <opencv2/core/core.hpp>
 #include <iostream>
-#include <string>
+
 #include <rslf_io.hpp>
 #include <experimental/filesystem>
-#include <vector>
 
 
 #define _RSLF_IO_VERBOSE

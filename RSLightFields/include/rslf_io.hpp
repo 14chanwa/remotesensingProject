@@ -1,12 +1,16 @@
 #ifndef _RSLF_IO
 #define _RSLF_IO
 
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <string>
-#include <vector>
 
 #include <rslf_types.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
+
+/*!
+ * \file
+ * \brief Implement i/o functions (read, write matrices).
+ */
+
 
 namespace rslf 
 {

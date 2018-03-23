@@ -15,7 +15,7 @@ namespace rslf
  */
 
 /**
- * Template class with depth computation using 1d slices of the EPI.
+ * \brief Template class with depth computation using 1d slices of the EPI.
  */
 template<typename DataType>
 class Depth1DComputer
@@ -32,7 +32,14 @@ public:
         const Depth1DParameters<DataType>& parameters = Depth1DParameters<DataType>::get_default()
     );
     
+    /**
+     * \brief Runs the algorithm
+     */
     void run();
+    
+    /**
+     * \brief Gets an EPI with colors corresponding to the computed slopes.
+     */
     Mat get_coloured_epi(int a_cv_colormap = cv::COLORMAP_JET);
 
 private:
@@ -81,8 +88,19 @@ public:
         const Depth1DParameters<DataType>& parameters = Depth1DParameters<DataType>::get_default()
   );
     
+    /**
+     * \brief Runs the algorithm
+     */
     void run();
+    
+    /**
+     * \brief Gets an EPI with colors corresponding to the computed slopes.
+     */
     Mat get_coloured_epi(int a_v = -1, int a_cv_colormap = cv::COLORMAP_JET);
+    
+    /**
+     * \brief Gets a disparity map with colors corresponding to the computed disparity.
+     */
     Mat get_disparity_map(int a_cv_colormap = cv::COLORMAP_JET);
     int get_s_hat() { return m_s_hat; }
 
@@ -132,8 +150,19 @@ public:
         bool verbose = true
   );
     
+    /**
+     * \brief Runs the algorithm
+     */
     void run();
+    
+    /**
+     * \brief Gets an EPI with colors corresponding to the computed slopes.
+     */
     Mat get_coloured_epi(int a_v = -1, int a_cv_colormap = cv::COLORMAP_JET);
+    
+    /**
+     * \brief Gets a disparity map with colors corresponding to the computed disparity.
+     */
     Mat get_disparity_map(int a_s = -1, int a_cv_colormap = cv::COLORMAP_JET);
     
     const Vec<Mat>& get_depths_s_v_u()
@@ -146,33 +175,10 @@ public:
         Vec<Mat>* validity_maps = new Vec<Mat>();
         for (int s=0; s<m_edge_confidence_s_v_u.size(); s++)
         {
-            //~ int dim_v = m_edge_confidence_s_v_u[0].rows;
-            //~ int dim_u = m_edge_confidence_s_v_u[0].cols;
-            
-            //~ // Get elementwise norm
-            //~ Mat im_norm = Mat(dim_v, dim_u, CV_32FC1);
-            //~ for (int v=0; v<dim_v; v++)
-            //~ {
-                //~ for (int u=0; u<dim_u; u++)
-                //~ {
-                    //~ im_norm.at<float>(v, u) = norm<DataType>(m_epis[v].at<DataType>(s, u));
-                //~ }
-            //~ }
-            
-            //~ // TODO better criterion?
-            //~ Mat thr1 = m_edge_confidence_s_v_u[s] > m_parameters.par_edge_score_threshold;
-            //~ Mat thr2 = im_norm > 0.2 * 1.73205080757;
-            //~ Mat tmp =
-                //~ cv::min(
-                    //~ thr1,
-                    //~ thr2
-                //~ );
-            //~ validity_maps->push_back(tmp);
             if (!m_accept_all)
                 validity_maps->push_back(m_edge_confidence_s_v_u[s] > m_parameters.par_edge_score_threshold);
             else
                 validity_maps->push_back(m_edge_confidence_s_v_u[s] > -1);
-            //~ validity_maps->push_back((m_disp_confidence_s_v_u[s] > m_parameters.m_disp_score_threshold_));
         }
         return *validity_maps;
     }

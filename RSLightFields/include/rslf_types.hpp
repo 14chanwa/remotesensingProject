@@ -1,10 +1,16 @@
 #ifndef _RSLF_TYPES
 #define _RSLF_TYPES    
 
-#include <vector>
-#include <string>
+//~ #include <vector>
+//~ #include <string>
 
 #include <opencv2/core/core.hpp>
+
+
+/*! 
+ * \file
+ * \brief Implement a toolbox of utilitary functions. 
+ * */ 
 
 
 namespace rslf
@@ -19,19 +25,22 @@ template<typename T>
 using Vec = std::vector<T>;
 
 /**
- * Gets an explicit form of an OpenCV type.
+ * \brief Get an explicit form of an OpenCV type.
  * 
  * @param type The type to disambiguate.
  * @return A string describing the type.
  */
 std::string type2str(int type);
 
-/*
- * NaN
+/**
+ * \brief Implement NaN
  */
 template<typename DataType>
 DataType nan_type();
 
+/**
+ * \brief Check whether the element is NaN
+ */
 template<typename DataType>
 bool is_nan_type(DataType x);
 
@@ -41,8 +50,8 @@ bool is_nan_type<float>(float x);
 template<>
 bool is_nan_type<cv::Vec3f>(cv::Vec3f x);
 
-/*
- * Zero
+/**
+ * \brief Impelment zero
  */
 template<typename DataType>
 cv::Scalar zero_scalar();
@@ -53,8 +62,8 @@ cv::Scalar zero_scalar<float>();
 template<>
 cv::Scalar zero_scalar<cv::Vec3f>();
 
-/*
- * Template norm
+/**
+ * \brief Implement the euclidean norm
  */
 template<typename DataType>
 float norm(DataType x);

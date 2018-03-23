@@ -1,17 +1,11 @@
 #ifndef _RSLF_DEPTH_COMPUTATION_CORE
 #define _RSLF_DEPTH_COMPUTATION_CORE
 
-#include <string>
-#include <vector>
 #include <chrono>
-#include <iostream>
-
 #include <omp.h>
 
-#include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#include <rslf_types.hpp>
 #include <rslf_interpolation.hpp>
 #include <rslf_kernels.hpp>
 
@@ -45,6 +39,12 @@
 // https://stackoverflow.com/questions/2724708/is-it-a-good-practice-to-pass-struct-object-as-parameter-to-a-function-in-c
 
 
+/*! 
+ * \file 
+ * \brief Implement low-level depth computation functions
+ */ 
+
+
 namespace rslf
 {
     
@@ -52,6 +52,10 @@ namespace rslf
  * *****************************************************************
  * Depth1DParameters
  * *****************************************************************
+ */
+
+/**
+ * \brief Impelment a structure containing all the algorithm parameters.
  */
 template<typename DataType>
 struct Depth1DParameters
@@ -129,6 +133,10 @@ Depth1DParameters<DataType> Depth1DParameters<DataType>::s_default_ = Depth1DPar
  * compute_1D_depth_epi
  * *****************************************************************
  */
+/**
+ * \brief Implement a buffer containing re-usable temporary variables
+ * in order to avoid multiple unnecessary allocations.
+ */
 template <typename DataType>
 struct BufferDepth1D {
     
@@ -178,6 +186,10 @@ struct BufferDepth1D {
     Mat             buf_r_bar_broadcast;
 };
 
+/**
+ * \brief Compute the edge confidence score for a single line along the
+ * dimension u.
+ */
 template<typename DataType>
 void compute_1D_edge_confidence(
     const Mat&  a_epi,
@@ -188,6 +200,10 @@ void compute_1D_edge_confidence(
     BufferDepth1D<DataType>&            a_buffer
 );
 
+/**
+ * \brief Given a single EPI along dimensions (s, u) (v is fixed), compute
+ * the slopes only looking at a single line (given by s_hat).
+ */
 template<typename DataType>
 void compute_1D_depth_epi(
     const Mat&  a_epi,
@@ -211,6 +227,10 @@ void compute_1D_depth_epi(
  * *****************************************************************
  */
 
+/**
+ * \brief Given a vector of EPIs, compute the edge confidence along the line
+ * of given index s along the dimension u.
+ */
 template<typename DataType>
 void compute_1D_edge_confidence_pile(
     const Vec<Mat>& a_epis,
@@ -221,6 +241,10 @@ void compute_1D_edge_confidence_pile(
     Vec<BufferDepth1D<DataType>* >&     a_buffers
 );
 
+/**
+ * \brief For every EPI in the given vector (i.e. for all v), compute the
+ * slopes only looking at a single line (given by s_hat).
+ */
 template<typename DataType>
 void compute_1D_depth_epi_pile(
     const Vec<Mat>& a_epis,
@@ -246,6 +270,10 @@ void compute_1D_depth_epi_pile(
  * *****************************************************************
  */
 
+/**
+ * \brief Given a vector of EPIs, compute the edge confidence on all lines
+ * for all EPIs (so that an edge confidence value is given for all (s, v, u)).
+ */
 template<typename DataType>
 void compute_2D_edge_confidence(
     const Vec<Mat>& a_epis,
@@ -255,6 +283,10 @@ void compute_2D_edge_confidence(
     Vec<BufferDepth1D<DataType>* >&     a_buffers
 );
 
+/**
+ * \brief Given a vector of EPIs, compute the disparities for all points (s, v, u)
+ * using the propagation process along the temporal axis s.
+ */
 template<typename DataType>
 void compute_2D_depth_epi(
     const Vec<Mat>&     a_epis,
@@ -279,6 +311,11 @@ void compute_2D_depth_epi(
  * *****************************************************************
  */
 
+/**
+ * \brief Filter the given spatial image of dimensions (v, u) using a
+ * selective median filter (only points with high edge confidence and
+ * similar color are taken into account). 
+ */
 template<typename DataType>
 void selective_median_filter(
     const Mat&  a_src,
@@ -295,7 +332,7 @@ void selective_median_filter(
  */
 
 /**
- * Sums the squares of the values across channels of the input matrix
+ * \brief Sum the squares of the values across channels of the input matrix
  * 
  * @param src Input
  * @param dst Output
@@ -305,7 +342,7 @@ template<typename DataType>
 void _square_sum_channels_into(const Mat& src, Mat& dst, Mat& buffer);
 
 /**
- * Multiply a vec matrix by a line matrix elementwise broadcasting the line matrix over channels of the vec matrix.
+ * \brief Multiply a vec matrix by a line matrix elementwise broadcasting the line matrix over channels of the vec matrix.
  * 
  * @param line_mat Input
  * @param vec_mat Input
@@ -316,7 +353,7 @@ template<typename DataType>
 void _multiply_multi_channel(const Mat& line_mat, const Mat& vec_mat, Mat& res_mat, Mat& buffer);
 
 /**
- * Divide a vec matrix by a line matrix elementwise broadcasting the line matrix over channels of the vec matrix.
+ * \brief Divide a vec matrix by a line matrix elementwise broadcasting the line matrix over channels of the vec matrix.
  * 
  * @param line_mat Input
  * @param vec_mat Input

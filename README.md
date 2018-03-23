@@ -1,7 +1,13 @@
 # remotesensingProject
 
 
-This repository implements some depth map estimation algorithm using 3D light fields, originally proposed by Kim et al. in [Scene Reconstruction from High Spatio-Angular Resolution Light Fields](https://www.disneyresearch.com/publication/scene-reconstruction-from-high-spatio-angular-resolution-light-fields/) (2013).
+This repository implements some depth map estimation algorithm using 3D light fields, originally proposed by Kim et al. in [Scene Reconstruction from High Spatio-Angular Resolution Light Fields](https://www.disneyresearch.com/publication/scene-reconstruction-from-high-spatio-angular-resolution-light-fields/) (2013). 
+
+
+This program was made in the framework of the course [Remote sensing: from sensor to large-scale geospatial data exploitation](https://mvaisat.wp.imt.fr/) of the Master 2 MVA (ENS Paris-Saclay, Telecom ParisTech).
+
+
+The Doxygen documentation for this project can be found in the branch `gh-pages` and is published under [this website](https://14chanwa.github.io/remotesensingProject/).
 
 
 <p align="center">

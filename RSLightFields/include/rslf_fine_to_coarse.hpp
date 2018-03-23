@@ -2,8 +2,7 @@
 #define _RSLF_FINE_TO_COARSE
 
 
-#include <limits>
-#include <rslf_depth_computation.hpp>
+#include <rslf_fine_to_coarse_core.hpp>
 
 
 #define _MIN_SPATIAL_DIM 10
@@ -11,36 +10,6 @@
 
 namespace rslf
 {
-
-/**
- * Downsamples given EPIs by a factor 2 in the spatial dimensions
- * 
- * @param in_epis Input EPIs
- * @param out_epis Output EPIs
- */
-void downsample_EPIs
-(
-    const Vec<Mat>& in_epis, 
-    Vec<Mat>& out_epis
-);
-
-
-/**
- * Fuse a pyramid of depths into one depth map and apply a median filter on top of it
- * 
- * @param in_disp_pyr_p_s_v_u A pyramid of disparity maps (finest first)
- * @param in_validity_indicators_p_s_v_u A pyramid of validity indicators for the respective disparity maps
- * @param out_map_s_v_u The output fused map
- * @param out_validity_s_v_u The output disp validity mask
- */
-void fuse_disp_maps
-(
-    const Vec<Vec<Mat >>& in_disp_pyr_p_s_v_u, 
-    const Vec<Vec<Mat> >& in_validity_indicators_p_s_v_u, 
-    Vec<Mat>& out_map_s_v_u, 
-    Vec<Mat>& out_validity_s_v_u
-);
-
 
 /*
  * *****************************************************************
@@ -65,13 +34,34 @@ public:
     );
     ~FineToCoarse();
     
+    /**
+     * \brief Runs the algorithm
+     */
     void run();
     
+    /**
+     * \brief Get the resulting disparity maps at the finest scale and the corresponding validity mask.
+     */
     void get_results(Vec<Mat>& out_map_s_v_u_, Vec<Mat>& out_validity_s_v_u_);
     
+    /**
+     * \brief Get disparity maps with colors corresponding to the computed disparities.
+     */
     void get_coloured_depth_maps(Vec<Mat>& out_plot_depth_s_v_u_, int cv_colormap = cv::COLORMAP_JET, bool saturate = true);
+    
+    /**
+     * \brief Get disparity maps with colors corresponding to the computed disparities, juxtaposed with the original image.
+     */
     void get_coloured_depth_maps_and_imgs(Vec<Mat>& out_plot_depth_s_v_u_, int cv_colormap = cv::COLORMAP_JET, bool saturate = true);
+    
+    /**
+     * \brief Get the EPI pyramid with colors corresponding to computed slopes.
+     */
     void get_coloured_epi_pyr(Vec<Mat>& out_plot_epi_pyr_p_s_u_, int v = -1, int cv_colormap = cv::COLORMAP_JET, bool saturate = true);
+    
+    /**
+     * \brief Get the disparity map pyramid with colors corresponding to computed disparities.
+     */
     void get_coloured_depth_pyr(Vec<Mat>& out_plot_depth_pyr_p_v_u_, int s = -1, int cv_colormap = cv::COLORMAP_JET, bool saturate = true);
     
     //~ Mat get_coloured_epi(int v = -1, int cv_colormap = cv::COLORMAP_JET);

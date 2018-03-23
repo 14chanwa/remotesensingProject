@@ -1,6 +1,7 @@
 #ifndef _RSLF_INTERPOLATION
 #define _RSLF_INTERPOLATION
 
+
 #include <rslf_types.hpp>
 
 
@@ -14,18 +15,26 @@ namespace rslf
  */
 
 /**
- * Template generic 1D interpolation class.
+ * \brief Pure virtual class implementing a generic interpolation instance.
  */
 template<typename DataType>
 class Interpolation1DClass
 {
     public:
+        /**
+         * \brief Get the interpolation value at the requested index on the provided line.
+         */
         virtual DataType interpolate(const Mat& line_matrix, float index) = 0;
+        
+        /**
+         * \brief Get the matrix with interpolation value at the index on the 
+         * provided line for each element, and count non-nan.
+         */
         virtual void interpolate_mat(const Mat& data_matrix, const Mat& indices, Mat& res, Mat& card_non_nan) = 0;
 };
 
 /**
- * Template nearest neighbour interpolation class.
+ * \brief Nearest neighbour interpolation class.
  */ 
 template<typename DataType> 
 class Interpolation1DNearestNeighbour : public Interpolation1DClass<DataType>
@@ -37,7 +46,7 @@ class Interpolation1DNearestNeighbour : public Interpolation1DClass<DataType>
 };
 
 /**
- * Template linear interpolation class.
+ * \brief Template linear interpolation class.
  */ 
 template<typename DataType> 
 class Interpolation1DLinear : public Interpolation1DClass<DataType>

@@ -1,4 +1,3 @@
-#include <string>
 #include <iostream>
 
 #include <opencv2/highgui/highgui.hpp>
@@ -73,10 +72,10 @@ void rslf::ImageConverter_uchar::fit(const Mat& img, bool saturate)
     
     if (saturate)
     {
-        // min=0.1% quantile
+        // min=0.02% quantile
         int idx_min = (int)std::floor(0.02 * reshaped_img.rows);
         min = sorted_img.at<float>(idx_min);
-        // max=0.9 quantile
+        // max=0.98% quantile
         int idx_max = (int)std::floor(0.98 * reshaped_img.rows);
         max = sorted_img.at<float>(idx_max);
     

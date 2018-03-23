@@ -1,6 +1,7 @@
 #ifndef _RSLF_KERNELS
 #define _RSLF_KERNELS
 
+
 #include <rslf_types.hpp>
 
 
@@ -13,17 +14,26 @@ namespace rslf
  * *****************************************************************
  */
 
+/**
+ * \brief Pure virtual class implementing a generic kernel instance.
+ */
 template<typename DataType>
 class KernelClass
 {
     public:
+        /**
+         * \brief Get the value of the kernel.
+         */
         virtual float evaluate(DataType x) = 0;
+        /**
+         * \brief Get a matrix with kernel evaluated at each element.
+         */
         virtual void evaluate_mat(const Mat& src, Mat& dst) = 0;
 };
 
 /**
- * This kernel returns value:
- * 1 - norm(x/h)^2 if norm(x/h) < 1
+ * \brief This kernel returns value:
+ * 1 - norm(x/h)^2 if norm(x/h) < 1,
  * 0 else
  */
 template<typename DataType>

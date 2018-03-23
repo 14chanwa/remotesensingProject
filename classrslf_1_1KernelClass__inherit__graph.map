@@ -1,0 +1,3 @@
+<map id="rslf::KernelClass&lt; DataType &gt;" name="rslf::KernelClass&lt; DataType &gt;">
+<area shape="rect" id="node2" href="$classrslf_1_1BandwidthKernel.html" title="This kernel returns value: 1 &#45; norm(x/h)^2 if norm(x/h) &lt; 1, 0 else. " alt="" coords="5,95,152,136"/>
+</map>

@@ -1,0 +1,5 @@
+<map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
+<area shape="rect" id="node1" href="$classrslf_1_1Interpolation1DClass.html" title="Pure virtual class implementing a generic interpolation instance. " alt="" coords="5,39,176,80"/>
+<area shape="rect" id="node2" href="$classrslf_1_1Interpolation1DLinear.html" title="Template linear interpolation class. " alt="" coords="230,5,401,47"/>
+<area shape="rect" id="node3" href="$classrslf_1_1Interpolation1DNearestNeighbour.html" title="Nearest neighbour interpolation class. " alt="" coords="224,71,407,112"/>
+</map>

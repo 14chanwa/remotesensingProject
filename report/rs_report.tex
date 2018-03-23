@@ -82,6 +82,7 @@
 
 % Width of the EPIs
 \def\epiWidth{0.6}
+\def\cropcHeight{3cm}
 
 \newcommand{\Binom}[2]{\begin{pmatrix} #1 \\ #2 \end{pmatrix}}
 
@@ -397,7 +398,7 @@ We could also redefine the norm for quad-channel images for instance with a fact
   \textbf{Dataset} & \textbf{Candidate $d$'s} & \textbf{Runtime (s)}\\
   \hline \hline 
   \multirow{2}{*}{MansionLR} & $0:4$ $[120]$ & $7409$\\
-  & $0:4$ $[240]$ & ???\\
+  & $0:4$ $[240]$ & $16666$\\
   \hline 
   \multirow{2}{*}{SkysatLR18} & $-1:4$ $[120]$ & $448$\\
   & $-1:4$ $[240]$ & $804$\\
@@ -405,7 +406,7 @@ We could also redefine the norm for quad-channel images for instance with a fact
   \multirow{2}{*}{SkysatLR01} & $-0.5:0.5$ $[120]$ & $143$\\
   & $-0.5:0.5$ $[240]$ & $254$\\
   \hline 
-  \multirow{2}{*}{SkysatHR18} & $-2:8$ $[120]$ & ???\\
+  \multirow{2}{*}{SkysatHR18} & $-2:8$ $[120]$ & $1714$\\
   & $-2:8$ $[240]$ & $2888$\\
   \hline
   \end{tabular}
@@ -425,7 +426,8 @@ We could also redefine the norm for quad-channel images for instance with a fact
 
 \begin{figure}[ht]
  \centering
- \includegraphics[width=0.9\textwidth]{images/mansion_kim_resized.png}
+ \includegraphics[width=0.7\textwidth]{images/mansion_kim_resized.png}\\
+ \includegraphics[width=0.7\textwidth]{images/MansionLR_240/1521776307225_dmap_050.png}
  \caption{Comparison of the results of Kim et al. in \cite{art:kim13:lfields} (top, computed using high definition images) and ours (bottom, computed with MansionLS, with $d=0:4$ $[240]$).}
  \label{fig:comparison_kim}
 \end{figure}
@@ -468,7 +470,7 @@ We compare the results for the same frames of the same datasets with a number of
  \centering
  \includegraphics[height=8cm]{images/SkysatLR18_120/1521739947374_dmap_050.png}\hspace{-0.28em}
  \includegraphics[height=8cm]{images/SkysatLR18_240/1521741442733_dmap_050.png}\\
- \vspace{-0.11em}
+ \vspace{1em}
  \includegraphics[height=8cm]{images/SkysatLR18_120/1521739947374_dmap_025.png}\hspace{-0.28em}
  \includegraphics[height=8cm]{images/SkysatLR18_240/1521741442733_dmap_025.png}
  \caption{Influence of the candidate disparities. SkysatLR18, original frame (left) $-1:4$ $[120]$ (middle) and $-1:4$ $[240]$ (right). Frame $50$ (top) and $25$ (bottom).}
@@ -480,11 +482,23 @@ We compare the results for the same frames of the same datasets with a number of
  \centering
  \includegraphics[height=8cm]{images/SkysatLR01_120/1521737975374_dmap_050.png}\hspace{-0.28em}
  \includegraphics[height=8cm]{images/SkysatLR01_240/1521738847855_dmap_050.png}\\
- \vspace{-0.11em}
+ \vspace{1em}
  \includegraphics[height=8cm]{images/SkysatLR01_120/1521737975374_dmap_025.png}\hspace{-0.28em}
  \includegraphics[height=8cm]{images/SkysatLR01_240/1521738847855_dmap_025.png}
  \caption{Influence of the candidate disparities. SkysatLR01, original frame (left) $-1:4$ $[120]$ (middle) and $-1:4$ $[240]$ (right). Frame $50$ (top) and $25$ (bottom).}
  \label{fig:skysatlr01:candidated}
+\end{figure}
+
+
+\begin{figure}[ht]
+ \centering
+ \includegraphics[width=0.45\textwidth]{images/MansionLR_120/1521751973001_dmap_050.png}\hspace{1em}
+ \includegraphics[width=0.45\textwidth]{images/MansionLR_120/1521751973001_dmap_025.png}\\
+ \vspace{-0.1em}
+ \includegraphics[width=0.45\textwidth]{images/MansionLR_240/1521776307225_dmap_050.png}\hspace{1em}
+ \includegraphics[width=0.45\textwidth]{images/MansionLR_240/1521776307225_dmap_025.png}
+ \caption{Influence of the candidate disparities. MansionLR, original frame (top) $0:4$ $[120]$ (middle) and $0:4$ $[240]$ (bottom). Frame $50$ (left) and $25$ (right).}
+ \label{fig:mansionlr:candidated}
 \end{figure}
 
 
@@ -496,13 +510,54 @@ We compute the disparity estimations on the same frame Figure \ref{fig:influence
 
 \begin{figure}[ht]
  \centering
- %\includegraphics[height=8cm]{images/SkysatLR01_120/1521737975374_dmap_050.png}\hspace{-0.28em}
+ \includegraphics[height=8cm]{images/SkysatLR18_240_img/1521805051081_dmap_050.png}\hspace{-0.28em}
  \includegraphics[height=8cm]{images/SkysatHR18_240/1521744514157_dmap_050.png}\\
- \vspace{-0.11em}
- %\includegraphics[height=8cm]{images/SkysatLR01_120/1521737975374_dmap_025.png}\hspace{-0.28em}
+ \vspace{1em}
+ \includegraphics[height=8cm]{images/SkysatLR18_240_img/1521805051081_dmap_025.png}\hspace{-0.28em}
  \includegraphics[height=8cm]{images/SkysatHR18_240/1521744514157_dmap_025.png}
  \caption{Influence of the resolution of the images. Original frame (left) SkysatLR18 $-1:4$ $[120]$ (middle) and SkysatHR18 $-1:4$ $[240]$ (right). Frame $50$ (top) and $25$ (bottom).}
  \label{fig:influenceres}
+\end{figure}
+
+
+\begin{figure}[ht]
+ \centering
+ \begin{tabular}{|c||c|c|c|}
+ \hline
+  \rotatebox[origin=l]{90}{LR01[120]} & 
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/SkysatLR01_crop_toit_120.png} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/SkysatLR01_crop_carre_120.png} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/SkysatLR01_crop_triangle_120.png}\\[-0.5em]
+  \hline
+  \rotatebox[origin=l]{90}{LR01[240]} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/SkysatLR01_crop_toit_240.png} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/SkysatLR01_crop_carre_240.png} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/SkysatLR01_crop_triangle_240.png}\\[-0.5em]
+  \hline
+  \rotatebox[origin=l]{90}{LR18[120]} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/SkysatLR18_crop_toit_120.png} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/SkysatLR18_crop_carre_120.png} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/SkysatLR18_crop_triangle_120.png}\\[-0.5em]
+  \hline
+  \rotatebox[origin=l]{90}{LR18[240]} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/SkysatLR18_crop_toit_240.png} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/SkysatLR18_crop_carre_240.png} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/SkysatLR18_crop_triangle_240.png}\\[-0.5em]
+  \hline
+  \rotatebox[origin=l]{90}{HR18[120]} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/SkysatHR18_crop_toit_120.png} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/SkysatHR18_crop_carre_120.png} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/SkysatHR18_crop_triangle_120.png}\\[-0.5em]
+  \hline
+  \rotatebox[origin=l]{90}{HR18[240]} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/SkysatHR18_crop_toit_240.png} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/SkysatHR18_crop_carre_240.png} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/SkysatHR18_crop_triangle_240.png}\\[-0.5em]
+  \hline
+  & Roof cross & Roof square & Root triangle \\ \hline
+ \end{tabular}
+ \caption{Influence of the resolution of the images. Original frame (left) SkysatLR18 $-1:4$ $[120]$ (middle) and SkysatHR18 $-1:4$ $[240]$ (right). Frame $50$ (top) and $25$ (bottom).}
+ \label{fig:comparison_details}
 \end{figure}
 
 

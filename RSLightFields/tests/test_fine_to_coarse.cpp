@@ -23,9 +23,9 @@ int main(int argc, char* argv[])
     // Load all images in folder
     //~ std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/skysat_lasvegas_rectified/rectified_equalized_resized_frames_step18/", "tif", CV_LOAD_IMAGE_UNCHANGED);
     //~ std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/rectified_equalized_frames/", "png", CV_LOAD_IMAGE_UNCHANGED);
-    std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/skysat_lasvegas_rectified/rectified_equalized_resized_frames_step1/", "tif", CV_LOAD_IMAGE_UNCHANGED);
+    //~ std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/skysat_lasvegas_rectified/rectified_equalized_resized_frames_step1/", "tif", CV_LOAD_IMAGE_UNCHANGED);
     //~ std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/sieleters_bande2_short/", "tif", CV_LOAD_IMAGE_UNCHANGED, true, true);
-    //~ std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/mansion_image_resized/", "jpg", CV_LOAD_IMAGE_UNCHANGED);
+    std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/mansion_image_resized/", "jpg", CV_LOAD_IMAGE_UNCHANGED);
     
     std::cout << list_mat.size() << " images read" << std::endl;
     
@@ -38,14 +38,14 @@ int main(int argc, char* argv[])
     //~ float d_min = -2.0;
     //~ float d_min = -1.0;
     //~ float d_min = 0.3;
-    float d_min = -0.5;
-    //~ float d_min = 0.0;
+    //~ float d_min = -0.5;
+    float d_min = 0.0;
     //~ float d_max = 2.0;
     //~ float d_max = 8.0;
-    //~ float d_max = 4.0;
-    float d_max = 0.5;
-    //~ int dim_d = 120;
+    float d_max = 4.0;
+    //~ float d_max = 0.5;
     int dim_d = 240;
+    //~ int dim_d = 240;
     
     bool saturate = true;
     //~ int colormap = cv::COLORMAP_HOT;
@@ -53,9 +53,9 @@ int main(int argc, char* argv[])
     
     std::cout << dim_d << " d values requested" << std::endl;
     
-    rslf::FineToCoarse<float> fine_to_coarse(epis, d_min, d_max, dim_d);
+    //~ rslf::FineToCoarse<float> fine_to_coarse(epis, d_min, d_max, dim_d);
     //~ rslf::FineToCoarse<float> fine_to_coarse(epis, d_min, d_max, dim_d, -1, rslf::Depth1DParameters<float>::get_default(), -1, true);
-    //~ rslf::FineToCoarse<cv::Vec3f> fine_to_coarse(epis, d_min, d_max, dim_d);
+    rslf::FineToCoarse<cv::Vec3f> fine_to_coarse(epis, d_min, d_max, dim_d);
     fine_to_coarse.run();
     
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();

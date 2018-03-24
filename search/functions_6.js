@@ -1,6 +1,10 @@
 var searchData=
 [
-  ['interpolate',['interpolate',['../classrslf_1_1Interpolation1DClass.html#a7de91fd90720582bbeb4e91ec77bb58d',1,'rslf::Interpolation1DClass::interpolate()'],['../classrslf_1_1Interpolation1DNearestNeighbour.html#af07df39cc1f91bc95340af7b4c7be339',1,'rslf::Interpolation1DNearestNeighbour::interpolate()'],['../classrslf_1_1Interpolation1DLinear.html#a8ef17476e5f9d603db690d97ad3552e4',1,'rslf::Interpolation1DLinear::interpolate()']]],
-  ['interpolate_5fmat',['interpolate_mat',['../classrslf_1_1Interpolation1DClass.html#ae4caa0bdb4114ccd93e32cb2b2b69ee9',1,'rslf::Interpolation1DClass::interpolate_mat()'],['../classrslf_1_1Interpolation1DNearestNeighbour.html#a400c01669c9881d6a927ba0435f61d55',1,'rslf::Interpolation1DNearestNeighbour::interpolate_mat()'],['../classrslf_1_1Interpolation1DLinear.html#a90510adaf68840b6415e1b17ec222351',1,'rslf::Interpolation1DLinear::interpolate_mat()']]],
-  ['is_5fnan_5ftype',['is_nan_type',['../rslf__types_8hpp.html#aafd980a40cd875e40bf74710724752ea',1,'rslf']]]
+  ['get_5fcoloured_5fdepth_5fmaps',['get_coloured_depth_maps',['../classrslf_1_1FineToCoarse.html#a6680d72d5fbffb68033453bba7786c87',1,'rslf::FineToCoarse']]],
+  ['get_5fcoloured_5fdepth_5fmaps_5fand_5fimgs',['get_coloured_depth_maps_and_imgs',['../classrslf_1_1FineToCoarse.html#a1720090a5090de45043546488130539b',1,'rslf::FineToCoarse']]],
+  ['get_5fcoloured_5fdepth_5fpyr',['get_coloured_depth_pyr',['../classrslf_1_1FineToCoarse.html#a30bfa3420fa88d0f77a2c0dab5a45691',1,'rslf::FineToCoarse']]],
+  ['get_5fcoloured_5fepi',['get_coloured_epi',['../classrslf_1_1Depth1DComputer.html#af236482efbd68430fb9fa0a23272da1c',1,'rslf::Depth1DComputer::get_coloured_epi()'],['../classrslf_1_1Depth1DComputer__pile.html#a7c6c5c4f804754a76a930149fff5c147',1,'rslf::Depth1DComputer_pile::get_coloured_epi()'],['../classrslf_1_1Depth2DComputer.html#ad07479c457dff56c4b3e88d45f74c7af',1,'rslf::Depth2DComputer::get_coloured_epi()']]],
+  ['get_5fcoloured_5fepi_5fpyr',['get_coloured_epi_pyr',['../classrslf_1_1FineToCoarse.html#ab698466599449e709bc43a5856ce9f84',1,'rslf::FineToCoarse']]],
+  ['get_5fdisparity_5fmap',['get_disparity_map',['../classrslf_1_1Depth1DComputer__pile.html#a4a4c71b417acb70d58071d1de17e6dc9',1,'rslf::Depth1DComputer_pile::get_disparity_map()'],['../classrslf_1_1Depth2DComputer.html#af87347d4bd5c972aae11821abe11f5e3',1,'rslf::Depth2DComputer::get_disparity_map()']]],
+  ['get_5fresults',['get_results',['../classrslf_1_1FineToCoarse.html#a7c8d2eb280e1668aa48fa92428a0193b',1,'rslf::FineToCoarse']]]
 ];

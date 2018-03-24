@@ -1,0 +1,7 @@
+<map id="include/rslf_depth_computation.hpp" name="include/rslf_depth_computation.hpp">
+<area shape="rect" id="node2" href="$rslf__plot_8hpp.html" title="Implement functions to scale and plot matrices. " alt="" coords="18,102,111,129"/>
+<area shape="rect" id="node5" href="$rslf__depth__computation__core_8hpp.html" title="Implement low&#45;level depth computation functions. " alt="" coords="137,95,294,136"/>
+<area shape="rect" id="node3" href="$rslf__types_8hpp.html" title="Implement a toolbox of utilitary functions. " alt="" coords="433,259,537,285"/>
+<area shape="rect" id="node9" href="$rslf__interpolation_8hpp_source.html" title="rslf_interpolation.hpp" alt="" coords="413,184,556,211"/>
+<area shape="rect" id="node10" href="$rslf__kernels_8hpp_source.html" title="rslf_kernels.hpp" alt="" coords="581,184,695,211"/>
+</map>

@@ -1,0 +1,9 @@
+<map id="include/rslf_fine_to_coarse.hpp" name="include/rslf_fine_to_coarse.hpp">
+<area shape="rect" id="node2" href="$rslf__fine__to__coarse__core_8hpp.html" title="Implement low&#45;level fine&#45;to&#45;coarse functions. " alt="" coords="53,95,185,136"/>
+<area shape="rect" id="node5" href="$rslf__depth__computation_8hpp.html" title="Implement high level classes for disparity computation. " alt="" coords="179,184,362,211"/>
+<area shape="rect" id="node6" href="$rslf__plot_8hpp.html" title="Implement functions to scale and plot matrices. " alt="" coords="148,266,241,293"/>
+<area shape="rect" id="node9" href="$rslf__depth__computation__core_8hpp.html" title="Implement low&#45;level depth computation functions. " alt="" coords="267,259,424,300"/>
+<area shape="rect" id="node7" href="$rslf__types_8hpp.html" title="Implement a toolbox of utilitary functions. " alt="" coords="563,423,667,449"/>
+<area shape="rect" id="node13" href="$rslf__interpolation_8hpp_source.html" title="rslf_interpolation.hpp" alt="" coords="543,348,686,375"/>
+<area shape="rect" id="node14" href="$rslf__kernels_8hpp_source.html" title="rslf_kernels.hpp" alt="" coords="711,348,825,375"/>
+</map>

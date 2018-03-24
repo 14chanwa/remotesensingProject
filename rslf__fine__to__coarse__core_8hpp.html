@@ -74,13 +74,13 @@ $(function() {
 <a href="#details">More...</a></p>
 <div class="textblock"><code>#include &lt;limits&gt;</code><br />
 <code>#include &lt;iostream&gt;</code><br />
-<code>#include &lt;rslf_depth_computation.hpp&gt;</code><br />
+<code>#include &lt;<a class="el" href="rslf__depth__computation_8hpp_source.html">rslf_depth_computation.hpp</a>&gt;</code><br />
 </div><div class="textblock"><div class="dynheader">
 Include dependency graph for rslf_fine_to_coarse_core.hpp:</div>
 <div class="dyncontent">
 <div class="center"><img src="rslf__fine__to__coarse__core_8hpp__incl.png" border="0" usemap="#include_2rslf__fine__to__coarse__core_8hpp" alt=""/></div>
 <map name="include_2rslf__fine__to__coarse__core_8hpp" id="include_2rslf__fine__to__coarse__core_8hpp">
-<area shape="rect" id="node4" href="rslf__depth__computation_8hpp_source.html" title="rslf_depth_computation.hpp" alt="" coords="179,95,362,121"/>
+<area shape="rect" id="node4" href="rslf__depth__computation_8hpp.html" title="Implement high level classes for disparity computation. " alt="" coords="179,95,362,121"/>
 <area shape="rect" id="node5" href="rslf__plot_8hpp.html" title="Implement functions to scale and plot matrices. " alt="" coords="148,177,241,203"/>
 <area shape="rect" id="node8" href="rslf__depth__computation__core_8hpp.html" title="Implement low&#45;level depth computation functions. " alt="" coords="267,169,424,211"/>
 <area shape="rect" id="node6" href="rslf__types_8hpp.html" title="Implement a toolbox of utilitary functions. " alt="" coords="563,333,667,360"/>
@@ -93,8 +93,8 @@ This graph shows which files directly or indirectly include this file:</div>
 <div class="dyncontent">
 <div class="center"><img src="rslf__fine__to__coarse__core_8hpp__dep__incl.png" border="0" usemap="#include_2rslf__fine__to__coarse__core_8hppdep" alt=""/></div>
 <map name="include_2rslf__fine__to__coarse__core_8hppdep" id="include_2rslf__fine__to__coarse__core_8hppdep">
-<area shape="rect" id="node2" href="rslf__fine__to__coarse_8hpp_source.html" title="include/rslf_fine_to\l_coarse.hpp" alt="" coords="5,95,136,136"/>
-<area shape="rect" id="node3" href="rslf_8hpp_source.html" title="include/rslf.hpp" alt="" coords="15,184,126,211"/>
+<area shape="rect" id="node2" href="rslf__fine__to__coarse_8hpp.html" title="Implement high level classes for fine&#45;to&#45;coarse. " alt="" coords="5,95,136,136"/>
+<area shape="rect" id="node3" href="rslf_8hpp.html" title="Including this header will load all the functions and classes. " alt="" coords="15,184,126,211"/>
 </map>
 </div>
 </div>
@@ -121,13 +121,13 @@ Functions</h2></td></tr>
         <tr>
           <td class="memname">void rslf::downsample_EPIs </td>
           <td>(</td>
-          <td class="paramtype">const Vec&lt; Mat &gt; &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="rslf__types_8hpp.html#adc2403e465f9a56e0ecdd1591032ee74">Vec</a>&lt; <a class="el" href="rslf__types_8hpp.html#a348680463783987f220804d2478d37ee">Mat</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>in_epis</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">Vec&lt; Mat &gt; &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="rslf__types_8hpp.html#adc2403e465f9a56e0ecdd1591032ee74">Vec</a>&lt; <a class="el" href="rslf__types_8hpp.html#a348680463783987f220804d2478d37ee">Mat</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>out_epis</em>&#160;</td>
         </tr>
         <tr>
@@ -158,25 +158,25 @@ Functions</h2></td></tr>
         <tr>
           <td class="memname">void rslf::fuse_disp_maps </td>
           <td>(</td>
-          <td class="paramtype">const Vec&lt; Vec&lt; Mat &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="rslf__types_8hpp.html#adc2403e465f9a56e0ecdd1591032ee74">Vec</a>&lt; <a class="el" href="rslf__types_8hpp.html#adc2403e465f9a56e0ecdd1591032ee74">Vec</a>&lt; <a class="el" href="rslf__types_8hpp.html#a348680463783987f220804d2478d37ee">Mat</a> &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>in_disp_pyr_p_s_v_u</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const Vec&lt; Vec&lt; Mat &gt; &gt; &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="rslf__types_8hpp.html#adc2403e465f9a56e0ecdd1591032ee74">Vec</a>&lt; <a class="el" href="rslf__types_8hpp.html#adc2403e465f9a56e0ecdd1591032ee74">Vec</a>&lt; <a class="el" href="rslf__types_8hpp.html#a348680463783987f220804d2478d37ee">Mat</a> &gt; &gt; &amp;&#160;</td>
           <td class="paramname"><em>in_validity_indicators_p_s_v_u</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">Vec&lt; Mat &gt; &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="rslf__types_8hpp.html#adc2403e465f9a56e0ecdd1591032ee74">Vec</a>&lt; <a class="el" href="rslf__types_8hpp.html#a348680463783987f220804d2478d37ee">Mat</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>out_map_s_v_u</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">Vec&lt; Mat &gt; &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="rslf__types_8hpp.html#adc2403e465f9a56e0ecdd1591032ee74">Vec</a>&lt; <a class="el" href="rslf__types_8hpp.html#a348680463783987f220804d2478d37ee">Mat</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>out_validity_s_v_u</em>&#160;</td>
         </tr>
         <tr>

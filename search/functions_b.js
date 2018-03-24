@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['type2str',['type2str',['../rslf__types_8hpp.html#abeded63f79812debb4465d83a186db75',1,'rslf']]]
+  ['selective_5fmedian_5ffilter',['selective_median_filter',['../rslf__depth__computation__core_8hpp.html#a550b22031c0d360510c666bcd55357fa',1,'rslf']]]
 ];

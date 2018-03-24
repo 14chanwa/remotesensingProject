@@ -1,6 +1,6 @@
 <map id="include/rslf_plot.hpp" name="include/rslf_plot.hpp">
-<area shape="rect" id="node2" href="$rslf_8hpp_source.html" title="include/rslf.hpp" alt="" coords="21,348,131,375"/>
-<area shape="rect" id="node3" href="$rslf__depth__computation_8hpp_source.html" title="include/rslf_depth\l_computation.hpp" alt="" coords="63,80,188,121"/>
-<area shape="rect" id="node4" href="$rslf__fine__to__coarse__core_8hpp.html" title="Implement low&#45;level fine&#45;to&#45;coarse functions. " alt="" coords="113,169,244,211"/>
-<area shape="rect" id="node5" href="$rslf__fine__to__coarse_8hpp_source.html" title="include/rslf_fine_to\l_coarse.hpp" alt="" coords="113,259,244,300"/>
+<area shape="rect" id="node2" href="$rslf__depth__computation_8hpp.html" title="Implement high level classes for disparity computation. " alt="" coords="12,80,137,121"/>
+<area shape="rect" id="node3" href="$rslf__fine__to__coarse__core_8hpp.html" title="Implement low&#45;level fine&#45;to&#45;coarse functions. " alt="" coords="9,169,140,211"/>
+<area shape="rect" id="node4" href="$rslf__fine__to__coarse_8hpp.html" title="Implement high level classes for fine&#45;to&#45;coarse. " alt="" coords="9,259,140,300"/>
+<area shape="rect" id="node5" href="$rslf_8hpp.html" title="Including this header will load all the functions and classes. " alt="" coords="19,348,130,375"/>
 </map>

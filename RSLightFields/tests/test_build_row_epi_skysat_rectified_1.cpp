@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
     }
     
     // Load all images in folder
-    std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/skysat_lasvegas_rectified/rectified_equalized_resized_frames_step1/", "tif", CV_LOAD_IMAGE_UNCHANGED);
+    std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/skysat_lasvegas_rectified/rectified_equalized_resized_frames_step1/", ".tif", CV_LOAD_IMAGE_UNCHANGED);
     
     cv::Mat epi = rslf::build_row_epi_from_imgs(list_mat, inspected_row);
     

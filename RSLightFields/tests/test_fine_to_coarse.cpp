@@ -53,7 +53,7 @@ int main(int argc, char* argv[])
     
     std::cout << dim_d << " d values requested" << std::endl;
     
-    rslf::FineToCoarse<float> fine_to_coarse(epis, d_min, d_max, dim_d);
+    rslf::FineToCoarse_1ch fine_to_coarse(epis, d_min, d_max, dim_d);
     //~ rslf::FineToCoarse<float> fine_to_coarse(epis, d_min, d_max, dim_d, -1, rslf::Depth1DParameters<float>::get_default(), -1, true);
     //~ rslf::FineToCoarse<cv::Vec3f> fine_to_coarse(epis, d_min, d_max, dim_d);
     fine_to_coarse.run();

@@ -5,6 +5,12 @@
 #include <rslf_depth_computation_core.hpp>
 
 
+/*!
+ * \file 
+ * \brief Implement high level classes for disparity computation.
+ */
+
+
 namespace rslf
 {
 
@@ -62,6 +68,17 @@ private:
     
     const Depth1DParameters<DataType>& m_parameters;
 };
+
+
+/**
+ * \brief Specialization of Depth1DComputer for 1-channel matrices
+ */
+using Depth1DComputer_1ch = Depth1DComputer<float>;
+
+/**
+ * \brief Specialization of Depth1DComputer for 3-channel matrices
+ */
+using Depth1DComputer_3ch = Depth1DComputer<cv::Vec3f>;
 
 
 /*
@@ -124,6 +141,17 @@ private:
     
     const Depth1DParameters<DataType>& m_parameters;
 };
+
+
+/**
+ * \brief Specialization of Depth1DComputer_pile for 1-channel matrices
+ */
+using Depth1DComputer_pile_1ch = Depth1DComputer_pile<float>;
+
+/**
+ * \brief Specialization of Depth1DComputer_pile for 3-channel matrices
+ */
+using Depth1DComputer_pile_3ch = Depth1DComputer_pile<cv::Vec3f>;
 
 
 /*
@@ -222,6 +250,17 @@ private:
     
     bool m_verbose;
 };
+
+
+/**
+ * \brief Specialization of Depth1DComputer for 1-channel matrices
+ */
+using Depth2DComputer_1ch = Depth2DComputer<float>;
+
+/**
+ * \brief Specialization of Depth1DComputer for 3-channel matrices
+ */
+using Depth2DComputer_3ch = Depth2DComputer<cv::Vec3f>;
 
 
 

@@ -16,6 +16,31 @@
 \usepackage{amssymb}
 \geometry{hmargin=2.7cm,vmargin=2.5cm}
 
+\usepackage{color}
+\usepackage{listings}
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstset{
+  frame=single,
+  language=C++,
+%   aboveskip=3mm,
+%   belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\ttfamily},
+  numbers=none,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{mauve},
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=3
+}
+
 \usepackage{footnote}
 
 \usepackage{multirow}
@@ -376,7 +401,7 @@ We could also redefine the norm for quad-channel images for instance with a fact
   \hline
   \textbf{Dataset} & \textbf{Description} \\
   \hline \hline 
-  MansionLR &Mansion preprocessed dataset\footnote{\url{http://people.csail.mit.edu/changil/publications/scene-reconstruction-from-high-spatio-angular-resolution-light-fields-siggraph-2013-datasets.html}}, that we resize to a resolution of $1146\times 720$\\
+  MansionLR & Mansion preprocessed dataset\footnote{\url{http://people.csail.mit.edu/changil/publications/scene-reconstruction-from-high-spatio-angular-resolution-light-fields-siggraph-2013-datasets.html}}, that we resize to a resolution of $1146\times 720$\\
   \hline 
   SkysatLR18 & Satellite images taken from a public Skysat video\footnote{\url{https://www.youtube.com/watch?v=lKNAY5ELUZY}} that we rectify. We proceeded first with a version downsampled to $540\times 960$ using one frame every $18$ frames.\\
   \hline 
@@ -663,7 +688,84 @@ Some leads to improve further the results are presented below:
 \section{Implementation details}
 
 
-TODO (still need to clean code)
+We implemented our algorithm using \verb#C++# and \verb#OpenCV#. The Doxygen documentation for the project can be found here:
+\begin{center}
+ \url{https://14chanwa.github.io/remotesensingProject/}
+\end{center}
+
+
+\subsection{Structure of the project}
+
+
+The project is organized in headers in the folder \verb#include/# and source files in the folder \verb#src/#. Most of the low-level functions are defined in the files \verb#rslf_depth_computation_core.hpp# and \verb#rslf_fine_to_coarse_core.hpp# and the high-level instances are defined in \verb#rslf_depth_computation.hpp# and \verb#rslf_fine_to_coarse.hpp#.
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[height=9.5cm]{drawings/rslf__fine__to__coarse_8hpp__incl.pdf}
+  \caption{Header inclusion dependancy tree}
+  \label{fig:header:dependancy}
+\end{figure}
+
+
+As described in the \verb#CMakeLists.txt# file, the program will be compiled under the form of a library and tests using functions from this library. In order to use the algorithms, we only have to add a \verb#.cpp# file in the \verb#tests/# folder and re-run \verb#CMake#. In order to get the right paths for the existing tests, we can run the following commands from the folder containing \verb#README.md#:
+\begin{verbatim}
+mkdir build
+cd build
+cmake ../RSLightFields
+make
+\end{verbatim}
+
+
+As for global aliases, \verb#rslf::Mat# is \verb#cv::Mat# and \verb#rslf::Vec<T># is \verb#std::vector<T>#. \verb#rslf::Mat# structures are bi-dimensional. A tri-dimensional structure will be stored using \verb#rslf::Vec<rslf::Mat>#.
+
+
+
+\subsection{High-level classes}
+
+
+In order to run the algorithm, one can use the high-level classes as presented in Figure \ref{code:mwe:ftc}.
+
+\begin{figure}[ht]
+\begin{lstlisting}
+#include <rslf.hpp>
+#include <opencv2/core/core.hpp>
+
+using namespace rslf; // Library namespace
+int main() {
+    // Load images (assume the folder contains only the images, in alphanumerical order)
+    // The last flag should be set according to the data type: float is UNCHANGED
+    Vec<Mat> list_mat = read_imgs_from_folder("path_to_folder", "extension", CV_LOAD_IMAGE_UNCHANGED); 
+    // Build EPIs
+    Vec<Mat> epis = build_epis_from_imgs(list_mat);
+    float d_min = 0.0;
+    float d_max = 4.0;
+    int dim_d = 120;
+    // Use FineToCoarse_1ch for monochannel, FineToCoarse_3ch for trichannel images 
+    FineToCoarse_1ch fine_to_coarse(epis, d_min, d_max, dim_d);
+    fine_to_coarse.run();
+    // Get results
+    Vec<Mat> out_map_s_v_u_;
+    Vec<Mat> out_validity_s_v_u_;
+    fine_to_coarse.get_results(out_map_s_v_u_, out_validity_s_v_u_);
+    // ...
+    return 0;
+}
+\end{lstlisting}
+\caption{Minimal working example for fine-to-coarse}
+\label{code:mwe:ftc}
+\end{figure}
+
+
+We included several high-level classes that perform different operations on EPIs:
+\begin{itemize}
+ \item \verb#FineToCoarse# executes the entire pipeline described in this document.
+ \item \verb#Depth1DComputer# computes only the disparity map for $\widehat{s} = s_{\max}/2$ one one given EPI (i.e. $v$ is fixed).
+ \item \verb#Depth1DComputer_pile# takes a pile of EPIs (a pile of $(s, u)$ images along the dimension $v$) and computes a disparity map for $\widehat{s} = s_{\max}/2$ for each $v$.
+ \item \verb#Depth2DComputer# takes a pile of EPIs and compute the disparity maps for all $v$ and all $s$ using the disparity propagation process.
+\end{itemize}
+These are template classes which internal structures depend on the number of channels of the image. Aliases are defined such as \verb#FineToCoarse_1ch#, \verb#Depth2DComputer_3ch#... are defined for convenience. The algorithm only supports monochannel and trichannel images.
+
 
 
 % C++

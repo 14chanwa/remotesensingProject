@@ -19,8 +19,15 @@ namespace rslf
 /*
  * Aliases
  */
+ 
+/**
+ * \brief RSLF Matrix class (cv::Mat)
+ */
 using Mat = cv::Mat;
 
+/**
+ * \brief RSLF Vector class (std::vector)
+ */
 template<typename T>
 using Vec = std::vector<T>;
 

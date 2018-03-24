@@ -61,7 +61,7 @@ template<typename DataType>
 struct Depth1DParameters
 {
 private:
-    static Depth1DParameters s_default_;
+    static Depth1DParameters s_default;
     bool m_owner_classes = false;
     
 public:
@@ -120,12 +120,12 @@ public:
     
     static Depth1DParameters& get_default() // get a static default instance
     {
-        return s_default_;
+        return s_default;
     }
 };
 
 template<typename DataType>
-Depth1DParameters<DataType> Depth1DParameters<DataType>::s_default_ = Depth1DParameters();
+Depth1DParameters<DataType> Depth1DParameters<DataType>::s_default = Depth1DParameters();
 
 
 /*

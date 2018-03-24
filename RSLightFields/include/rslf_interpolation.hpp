@@ -8,6 +8,13 @@
 namespace rslf
 {
     
+    
+//~ enum InterpolationType
+//~ {
+    //~ NEAREST_NEIGHBOUR = 0,
+    //~ LINEAR = 1
+//~ };
+    
 /*
  * *****************************************************************
  * INTERPOLATION CLASSES

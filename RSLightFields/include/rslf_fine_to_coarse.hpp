@@ -8,6 +8,12 @@
 #define _MIN_SPATIAL_DIM 10
 
 
+/*!
+ * \file 
+ * \brief Implement high level classes for fine-to-coarse.
+ */
+
+
 namespace rslf
 {
 
@@ -72,6 +78,21 @@ private:
     Vec<Depth1DParameters<DataType>* > m_parameter_instances;
     bool m_accept_all_last_scale;
 };
+
+
+/*
+ * Aliases
+ */
+
+/**
+ * \brief Specialization of FineToCoarse for 1-channel matrices
+ */
+using FineToCoarse_1ch = FineToCoarse<float>;
+
+/**
+ * \brief Specialization of FineToCoarse for 3-channel matrices
+ */
+using FineToCoarse_3ch = FineToCoarse<cv::Vec3f>;
 
 
 ////////////////////////////////////////////////////////////////////////

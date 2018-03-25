@@ -18,7 +18,7 @@
 #define _MEDIAN_FILTER_SIZE 5
 #define _MEDIAN_FILTER_EPSILON 0.1
 #define _EDGE_SCORE_THRESHOLD 0.02
-#define _DISP_SCORE_THRESHOLD 0.1
+#define _DISP_SCORE_THRESHOLD 0.05
 #define _PROPAGATION_EPSILON 0.1
 
 #define _BANDWIDTH_KERNEL_PARAMETER 0.2
@@ -29,6 +29,10 @@
 #define _SHADOW_NORMALIZED_LEVEL 0.05 * 1.73205080757 
 // between 0 and 1, 0 being dark and 1 being blank
 // multiplied by sqrt(3) for consistency with 3channels
+
+//#define _USE_DISP_CONFIDENCE_SCORE
+// if not defined, will use C_e as the propagation threshold, else will
+// use C_d > par_disp_score_threshold.
 
 
 // Useful links
@@ -860,7 +864,7 @@ void compute_2D_depth_epi(
     for (int s=0; s<dim_s; s++)
     {
         // TODO other criteria?
-        mask_s_v_u[s] = a_edge_confidence_mask_s_v_u[s];
+        mask_s_v_u[s] = a_edge_confidence_mask_s_v_u[s].clone();
     }
     
     Mat dmin_v_u;
@@ -931,7 +935,11 @@ void compute_2D_depth_epi(
             for (int u=0; u<dim_u; u++)
             {
                 // Only paint if the confidence threshold was high enough
+#ifdef _USE_DISP_CONFIDENCE_SCORE
+                if (disp_confidence_v_u.at<float>(v, u) > a_parameters.par_disp_score_threshold)
+#else
                 if (edge_confidence_mask_v_u.at<uchar>(v, u))
+#endif
                 {
                     float current_depth_value = best_depth_u.at<float>(u);
                     for (int s=0; s<dim_s; s++)
@@ -949,6 +957,7 @@ void compute_2D_depth_epi(
                         {
                             a_best_depth_s_v_u[s].at<float>(v, requested_index) = current_depth_value;
                             mask_s_v_u[s].at<uchar>(v, requested_index) = 0;
+                            a_disp_confidence_s_v_u[s].at<float>(v, requested_index) = disp_confidence_v_u.at<float>(v, u);
                         }
                     }
                 }

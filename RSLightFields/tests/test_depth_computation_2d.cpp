@@ -30,8 +30,8 @@ int main(int argc, char* argv[])
     }
     
     // Load all images in folder
-    //~ std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/skysat_lasvegas_rectified/rectified_equalized_resized_frames_step18/", "tif", CV_LOAD_IMAGE_UNCHANGED);
-    std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/sieleters_bande2_short/", "tif", CV_LOAD_IMAGE_UNCHANGED, true, true);
+    std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/skysat_lasvegas_rectified/rectified_equalized_resized_frames_step18/", "tif", CV_LOAD_IMAGE_UNCHANGED);
+    //~ std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/sieleters_bande2_short/", "tif", CV_LOAD_IMAGE_UNCHANGED, true, true);
     //~ std::vector<cv::Mat> list_mat = rslf::read_imgs_from_folder("../data/mansion_image_resized/", "jpg", CV_LOAD_IMAGE_UNCHANGED);
     
     std::cout << list_mat.size() << " images read" << std::endl;
@@ -42,16 +42,16 @@ int main(int argc, char* argv[])
     //~ rslf::plot_mat(epis[500], "EPI 500");
     //~ cv::waitKey();
     
-    //~ float d_min = -2.0;
-    float d_min = 0.5;
+    float d_min = -1.0;
+    float d_max = 4;
     //~ float d_min = -5.5;
-    float d_max = 5.5;
+    //~ float d_max = 5.5;
     //~ float d_max = 0.5;
-    int dim_d = 120;
+    int dim_d = 240;
     
     std::cout << dim_d << " d values requested" << std::endl;
     
-    rslf::Depth2DComputer<float> depth_computer_2d(epis, d_min, d_max, dim_d);
+    rslf::Depth2DComputer_1ch depth_computer_2d(epis, d_min, d_max, dim_d);
     //~ rslf::Depth2DComputer<cv::Vec3f> depth_computer_2d(epis, d_min, d_max, dim_d);
     depth_computer_2d.run();
     

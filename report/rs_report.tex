@@ -92,6 +92,9 @@
 
 \newcommand{\norm}[1]{\left\lVert#1\right\rVert}
 
+\newcommand{\petito}[1]{o\mathopen{}\left(#1\right)}
+\newcommand{\grandO}[1]{O\mathopen{}\left(#1\right)}
+
 \def\R{\mathbb{R}}
 \def\Z{\mathbb{Z}}
 \def\N{\mathbb{N}}
@@ -106,7 +109,7 @@
 \def\Ind{\mathbf{1}}
 
 % Width of the EPIs
-\def\epiWidth{0.6}
+\def\epiWidth{0.7}
 \def\cropcHeight{2.93cm}
 
 \newcommand{\Binom}[2]{\begin{pmatrix} #1 \\ #2 \end{pmatrix}}
@@ -155,14 +158,14 @@ Some real examples of EPIs are presented in Figure \ref{fig:exepi}. Compared to 
 The authors use very high definition images -- the article thus describe several implementation details in order to ensure computational feasibility, both in terms of space (sparse representation of light fields) and computational power. For instance, they prefer local optimization near object boundaries and propagation to nearby areas in a fine-to-coarse approach to global optimization on the whole image. In the end, the method seems relatively fast, precise and robust to inconsistencies and outliers.
 
 
-\paragraph{Goal} The goal of this project is to adapt the method proposed by Kim and al., that they tested on urban landscapes with mainstream cameras, to the context of satellite images. It should noted that the case of rectified satellite images correspond to case of a set of images taken along a linear path such that the ground is pushed to the infinity (thus its disparity should be zero). We chose not to focus on GPU implementation and memory management and choose to proceed with mildly high resolution images to ensure computational feasibility.
+\paragraph{Goal} The goal of this project is to adapt the method proposed by Kim and al., that they tested on urban landscapes with mainstream cameras, to the context of satellite images. It should noted that the case of rectified satellite images correspond to case of a set of images taken along a linear path. The images are registered in such a way that the ground doesn’t move. We chose not to focus on GPU implementation and memory management and choose to proceed with mildly high resolution images to ensure computational feasibility.
 
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\epiWidth\textwidth]{images/1519991772641_1st.png}\\
-  \includegraphics[width=\epiWidth\textwidth]{images/1519991772641_epi.png}\\
-  \includegraphics[width=\epiWidth\textwidth]{images/1521725699383_1st.png}\\[0.5cm]
+  \includegraphics[width=\epiWidth\textwidth]{images/1519991772641_epi.png}\\[0.5cm]
+  \includegraphics[width=\epiWidth\textwidth]{images/1521725699383_1st.png}\\
   \includegraphics[width=\epiWidth\textwidth]{images/1521725699383_epi.png}
   \caption{Sample EPIs from SkysatLR18 (top) and MansionLR (bottom) datasets. We see that individual points leave a linear trace in the temporal dimension and that occlusions change over time.}
   \label{fig:exepi}
@@ -248,15 +251,15 @@ After these steps, we obtain disparity values for each point such that $C_e$ was
 
 \paragraph{Differences with the article} It should be noted that in \cite{art:kim13:lfields}, Kim et al. handle the situation in which a point with high edge confidence $C_e$ could have a bad disparity estimation $d$. This could for instance happen if the point is in the intersection of two lines of the same color with different slopes in the EPI. In order to do so, the authors define a disparity confidence score
 \begin{align}
- C_d (\widehat{s}, u) &= C_e (\widehat{s}, u) \norm{\max_d S(u, d) - \mathrm{mean}_d S(u, d)}
+ C_d (\widehat{s}, u) &= C_e (\widehat{s}, u) \left|\max_d S(u, d) - \underset{d}{\mathrm{mean}}\, S(u, d)\right| \label{eq:c_d}
 \end{align}
-and only retain and propagate $d$'s corresponding to points with a high $C_d$. We chose not to use this conservative criterion since it decreases significantly the number of valid estimations and tend to erase mildly sharp borders on buildings in our satellite images.
+and only retain and propagate $d$'s corresponding to points with a high $C_d$. We chose not to use this conservative criterion since it decreases significantly the number of valid estimations and tend to erase mildly sharp borders on buildings in our satellite images, as shown in Section \ref{sec:results}.
 
 
 \subsection{Selective median filtering}
 
 
-We repeat the process for all the lines $v$ -- since the process is independant for each $v$, this operation can be simultaneous.
+We repeat the process for all the lines $v$ -- since the process is independent for each $v$, this operation can be simultaneous.
 
 
 When all lines $v$ have been computed, we apply a median filter on the resulting disparity map along dimensions $(v, u)$ such that in the end, for a point $(v, u)$ such that $C_e (v, u) > 0.02$, the selected value $d_{v, u}$ is the median value of the set:
@@ -286,8 +289,8 @@ In order to proceed to a multi-scale analysis, the idea is to use the regularizi
 
 \paragraph{Downsampling} We progressively fill the zones left blank by our confidence criterion (we choose here $C_e > \varepsilon_{C_e}$ ; one could apply $C_d > \varepsilon_{C_d}$ like in the article but this is significantly more conservative). This approach is similar to building a pyramid of images, and writes as follow:
 \begin{enumerate}
- \item Let us consider a pile of images at the scale $p$ (the ``stair $p$'' of the pyramid). One first applies a Gaussian filter in the spatial dimensions $(v, u)$ with window $\mathcal{N}_\text{downsampling}$.
- \item We then downsample the images by taking one line over 2 in the spatial dimensions $(v, u)$ ; the resolution along the temporal dimension $s$ is left unchanged. This is the stair $p+1$ of the pyramid of images.
+ \item Let us consider a pile of images at the scale $p$ (the ``level $p$'' of the pyramid). One first applies a Gaussian filter in the spatial dimensions $(v, u)$ with window $\mathcal{N}_\text{downsampling}$.
+ \item We then downsample the images by taking one line over 2 in the spatial dimensions $(v, u)$ ; the resolution along the temporal dimension $s$ is left unchanged. This is the scale $p+1$ of the pyramid of images.
  \item Then, we use the confident disparities computed at the scale $p$ in order to derive disparity bounds for the scale $p+1$. This step is not described precisely in the article ; we chose, given a point $(s, v', u')$ in $p+1$, to select the 2 pairs of points $(s, v, [u_1^1, u_2^1])$ $(s, v+1, [u_1^2, u_2^2])$ where $v = 2 v'$ and $u_1^1$, $u_1^2$ are the first confident points at the left and right of $u=2u'$. The bounds for $(s, v', u')$ will be the $\min$ and the $\max$ disparities among these points.
  \item We then perform a disparity computation along all axis as described in the preceding section.
 \end{enumerate}
@@ -343,7 +346,7 @@ In the end, following the paper, we also make the following refinements:
 
 
 \clearpage
-\section{Results}
+\section{Results} \label{sec:results}
 
 
 \subsection{Datasets and parameters} \label{subsec:dataset_params}
@@ -352,14 +355,14 @@ In the end, following the paper, we also make the following refinements:
 The parameters we used for the following results are presented in Table \ref{table:parameters}. We chose to test our algorithm on the original data of \cite{art:kim13:lfields} along with satellite images taken from a public Skysat video. The datasets are described in Table \ref{table:datasets}.
 
 
-\paragraph{Parameters and number of channels} It should be noted that MansionLR is a tri-channel dataset and Skysat is a mono-channel dataset. Our kernels, confidence measure and color thresholds use the Euclidean norm of the values of images -- in order to use the same parameters for all the experiments and maintain coherence between the experiments, we decide to define the parameters for tri-channel images and redefine the Euclidean norm for the mono-channel images as follows:
+\paragraph{Parameters and number of channels} It should be noted that MansionLR is a RGB dataset and Skysat is a monochromatic dataset. Our kernels, confidence measure and color thresholds use the Euclidean norm of the values of images -- in order to use the same parameters for all the experiments and maintain coherence between the experiments, we decide to define the parameters for RGB images and redefine the Euclidean norm for the monochromatic images as follows:
 \begin{align}
  \forall x \in \R, \qquad \norm{x} &= \sqrt{3} \times \abs{x}.
 \end{align}
-We could also redefine the norm for quad-channel images for instance with a factor $\sqrt{3/4}$.
+We could also redefine the norm for four-channel images for instance with a factor $\sqrt{3/4}$.
 
 
-\paragraph{Preprocessing normalization} Images can be given in the tricolor format $(0\cdots 255)^3$ or in \verb#float# format. We decide to convert all the EPIs in \verb#float# as a preprocessing and scale the values by a factor $255$ if the image was in \verb#uchar#, or so that the maximum is $1.0$ if the image was given in \verb#float#. 
+\paragraph{Preprocessing normalization} Images can be represented in \verb#uint# format (with values from $0$ to $255$ or in \verb#float# format. We decide to convert all the EPIs in \verb#float# as a preprocessing and scale the values by a factor $255$ if the image was in \verb#uchar#, or so that the maximum is $1.0$ if the image was given in \verb#float#. 
 
 
 \paragraph{Shading} Satellite images show numerous dark zones due to shading. These zones are homogeneous and non-textured, so that no clear disparity estimation can be done -- we decide to mask these zones both during the disparity estimation process and in the final disparity maps. We thus ignore zones such that $\norm{E} < 0.05 \sqrt{3}$.
@@ -379,7 +382,7 @@ We could also redefine the norm for quad-channel images for instance with a fact
   \hline 
   $h$ & Bandwith kernel parameter. & 0.2 \\
   \hline 
-  $\varepsilon_{C_e}$ & Confidence edge threshold. & 0.02 \\
+  $\varepsilon_{C_e}$ & Edge confidence threshold. & 0.02 \\
   \hline 
   $\varepsilon_E$ & Color difference propagation threshold. & 0.1 \\
   \hline 
@@ -441,22 +444,58 @@ We could also redefine the norm for quad-channel images for instance with a fact
 \end{table}
 
 
-\subsection{Validation on the original dataset and qualitative results}
+\subsection{Disparity confidence score criterion}
 
 
-\subsection{Validation} 
+We tried to apply the confidence criterion $C_d$ described in \cite{art:kim13:lfields} and defined in Equation \eqref{eq:c_d}:
+\begin{align*}
+ C_d (\widehat{s}, u) &= C_e (\widehat{s}, u) \left|\max_d S(u, d) - \underset{d}{\mathrm{mean}}\, S(u, d)\right|.
+\end{align*}
+As mentionned before, this criterion proves too conservative for the mildly defined borders of the buildings in our Skysat dataset. This results in some borders not being detected: this behaviour will later perturbate the fine-to-coarse process and the coarse scale estimation will be flawed. We illustrate this phenomenon in the comparison shown in Figure \ref{fig:c_d_comparison}. Moreover, using $C_d$ increases computation times significantly: we thus decided not to use this criterion in the other experiments and use only $C_e$ as a propagation criterion.
 
 
-We perform the depth estimation on one of the original datasets of Kim et al. (MansionLR) and compare our disparity map to theirs. The results are presented in Figure \ref{fig:comparison_kim}. As expected, our results are less precise, noticeably behind the tree (that is partially merged with the wall behind it). This can be explained by the fact that we used images of 8 MP (compared to 19 MP) and did not implement the conservative criterion $C_d$ on disparity confidence (that result in more artefacts in the final estimation). The results are quite similar on other zones: the main structures seem correctly detected and estimated, especially the foliage at the right, the tree branch silhouettes in the center, the barrier at the front and the flat surfaces on the mansion wall. This validates the pertinence and efficiency of the fine-to-coarse approach.
+\begin{figure}[ht]
+ \centering
+ \begin{tabular}{|c||c|c|c|}
+ \hline
+  \rotatebox[origin=l]{90}{1st scale} & 
+  \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_010_1stsc.png} &
+  \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_005_1stsc.png} &
+  \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_000_1stsc.png}\\[-0.5em]
+  \hline
+  \rotatebox[origin=l]{90}{Result} &
+  \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_010.png} &
+  \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_005.png} &
+  \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_000.png}\\[-0.5em]
+  \hline
+  \rotatebox[origin=l]{90}{Original} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/crop_toit_triangle.png} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/crop_toit_triangle.png} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/crop_toit_triangle.png}\\[-0.5em]
+  \hline
+  & $C_d=0.1$ & $C_d=0.05$ & Not using $C_d$ \\ \hline
+ \end{tabular}
+ \caption{Comparison of the results by using $C_d > 0.1$ (left, value used in \cite{art:kim13:lfields}), $C_d > 0.05$ (middle), and not using $C_d$ (right) on SkysatLR18 $[120]$, frame $50$. We represent the results of the first scale computation ($p=0$, top), the final depth map after fine-to-coarse (middle) and the original frame (bottom). The computation times were $4511$, $3148$ and $448$ seconds.}
+ \label{fig:c_d_comparison}
+\end{figure}
+
+
+\subsection{Validation on the original dataset} 
+
+
+We perform the depth estimation on one of the original datasets of Kim et al. (MansionLR) and compare our disparity map to theirs. The results are presented in Figure \ref{fig:comparison_kim}. 
+
+As expected, our results are less precise, noticeably behind the tree (that is partially merged with the wall behind it). This can be explained by the fact that we used images of 8 MP (compared to 19 MP) and did not implement the conservative criterion $C_d$ on disparity confidence (that result in more artefacts in the final estimation). The results are quite similar on other zones: the main structures seem correctly detected and estimated, especially the foliage at the right, the tree branch silhouettes in the center, the barrier at the front and the flat surfaces on the mansion wall. This validates the pertinence and efficiency of the fine-to-coarse approach.
 
 
 \begin{figure}[ht]
  \centering
  \includegraphics[width=0.7\textwidth]{images/mansion_kim_resized.png}\\
  \includegraphics[width=0.7\textwidth]{images/MansionLR_240/1521776307225_dmap_050.png}
- \caption{Comparison of the results of Kim et al. in \cite{art:kim13:lfields} (top, computed using high definition images) and ours (bottom, computed with MansionLS, with $d=0:4$ $[240]$).}
+ \caption{Comparison of the results of Kim et al. in \cite{art:kim13:lfields} (top, computed using high definition images) and ours (bottom, computed with MansionLS, with $d=0:4$ $[240]$). We cut the shadows, thus the dark zones.}
  \label{fig:comparison_kim}
 \end{figure}
+
 
 
 \subsection{Influence of the resolution}
@@ -499,6 +538,7 @@ On the MansionLR dataset (Figure \ref{fig:mansionlr:candidated}), the difference
 Overall, a more dense set of candidate disparities help in sharpening the details of the disparity maps. The computational burden is however linear in the number of candidates ($448$ seconds for LR18 $[120]$, $804$ seconds for LR18 $[240]$).
 
 
+\clearpage
 \begin{figure}[ht]
  \centering
  \includegraphics[height=8cm]{images/SkysatLR18_240_img/1521805051081_dmap_050.png}\hspace{-0.28em}
@@ -655,7 +695,7 @@ Some leads to improve further the results are presented below:
  that would be less conservative and yet ensure that a line is indeed well defined in the EPI.
  \item As a way to keep as much information as possible during the downsampling step, one could consider for instance adding a supplementary channel to the EPIs that would contain the derivative of the image. This method was successfully applied for instance in the context of inpaining (see \cite{art:liu:deriv} and \cite{art:newson:deriv}).
  \item Contrary to the method of \cite{art:kim13:lfields}, we did not implement our algorithm on GPU. It could be possible to adapt our code with some adjustments in the interpolation scheme.
- \item In order to avoid the issue of sloped being too small to be correctly estimated, one could use other interpolation methids (here we only used a linear interpolation) or equivalently dilate the spatial dimension $u$ during preprocessing using a good interpolation method.
+ \item In order to avoid the issue of slopes being too small to be correctly estimated, one could use other interpolation methods (here we only used a linear interpolation) or equivalently dilate the spatial dimension $u$ during preprocessing using a good interpolation method.
 \end{enumerate}
 
 
@@ -702,8 +742,8 @@ The project is organized in headers in the folder \verb#include/# and source fil
 
 \begin{figure}[ht]
   \centering
-  \includegraphics[height=9.5cm]{drawings/rslf__fine__to__coarse_8hpp__incl.pdf}
-  \caption{Header inclusion dependancy tree}
+  \includegraphics[height=9.5cm, trim=0cm 1cm 0cm 1cm, clip]{drawings/rslf_8hpp__incl.pdf}
+  \caption{Header inclusion dependency tree}
   \label{fig:header:dependancy}
 \end{figure}
 
@@ -734,17 +774,15 @@ In order to run the algorithm, one can use the high-level classes as presented i
 using namespace rslf; // Library namespace
 int main() {
     // Load images (assume the folder contains only the images, in alphanumerical order)
-    // The last flag should be set according to the data type: float is UNCHANGED
+    // The flag should be set according to the input images: float is CV_LOAD_IMAGE_UNCHANGED, other files are either CV_LOAD_IMAGE_COLOR or CV_LOAD_IMAGE_GRAYSCALE
     Vec<Mat> list_mat = read_imgs_from_folder("path_to_folder", "extension", CV_LOAD_IMAGE_UNCHANGED); 
-    // Build EPIs
     Vec<Mat> epis = build_epis_from_imgs(list_mat);
     float d_min = 0.0;
     float d_max = 4.0;
     int dim_d = 120;
-    // Use FineToCoarse_1ch for monochannel, FineToCoarse_3ch for trichannel images 
+    // Use FineToCoarse_1ch for monochromatic, FineToCoarse_3ch for RGB images 
     FineToCoarse_1ch fine_to_coarse(epis, d_min, d_max, dim_d);
     fine_to_coarse.run();
-    // Get results
     Vec<Mat> out_map_s_v_u_;
     Vec<Mat> out_validity_s_v_u_;
     fine_to_coarse.get_results(out_map_s_v_u_, out_validity_s_v_u_);
@@ -764,8 +802,25 @@ We included several high-level classes that perform different operations on EPIs
  \item \verb#Depth1DComputer_pile# takes a pile of EPIs (a pile of $(s, u)$ images along the dimension $v$) and computes a disparity map for $\widehat{s} = s_{\max}/2$ for each $v$.
  \item \verb#Depth2DComputer# takes a pile of EPIs and compute the disparity maps for all $v$ and all $s$ using the disparity propagation process.
 \end{itemize}
-These are template classes which internal structures depend on the number of channels of the image. Aliases are defined such as \verb#FineToCoarse_1ch#, \verb#Depth2DComputer_3ch#... are defined for convenience. The algorithm only supports monochannel and trichannel images.
+These are template classes which internal structures depend on the number of channels of the image. Aliases are defined such as \verb#FineToCoarse_1ch#, \verb#Depth2DComputer_3ch#... are defined for convenience. The algorithm only supports monochromatic and RGB images.
 
+
+\subsection{Low-level functions and complexity}
+
+
+\paragraph{Depth computation} The main computations are handled by the low-level functions written in the file \verb#rslf_depth_computation_core.hpp#.
+\begin{enumerate}
+ \item \verb#compute_1D_edge_confidence# will compute $C_e$ for a single line $s$ of a single EPI $v$. The rough complexity is $\grandO{u}$.
+ \item \verb#compute_1D_depth_epi# will compute the slope estimation for a single line $s$ of a single EPI $v$. The rough complexity is $\grandO{ud}$.
+ \item \verb#compute_1D_edge_confidence_pile# will call \verb#compute_1D_edge_confidence# on the single line $s$ of every EPI $v$ (given the corresponding vector of EPIs). The rough complexity is $\grandO{vu}$.
+ \item \verb#compute_1D_depth_epi_pile# will call \verb#compute_1D_depth_epi# on the single line $s$ of every EPI $v$ (given the corresponding vector of EPIs). The rough complexity is $\grandO{vud}$.
+ \item \verb#compute_2D_edge_confidence# will call \verb#compute_1D_edge_confidence_pile# on every line $s$ so that every point $(s, v, u)$ is given a score $C_e$. The rough complexity is $\grandO{svu}$. This step proves very fast in practice.
+ \item \verb#compute_2D_depth_epi# will call \verb#compute_1D_edge_confidence_pile# on every line $s$ so that every point $(s, v, u)$ with a sufficient confidence score will be given a disparity value. The rough empirical complexity is $\grandO{vud}$, as the propagation process significantly reduces the complexity in $v$, $u$, $d$ at a given $s$ after the first iteration on $\widehat{s}=s_{\max}/2$.
+\end{enumerate}
+Note that these are template functions that depend on the number of channel of the input EPIs. The functions for RGB images are significantly more intensive than the functions for monochromatic images, as shown by the runtimes in Table \ref{table:tests}.
+
+\paragraph{Fine to coarse}
+The implementation makes use of the high-level classes for depth computation. The algorithm will run on downsampled images $u \leftarrow u/2$, $v \leftarrow v/2$ at each step, so that the overall empirical complexity will still be $\grandO{vud}$.
 
 
 % C++

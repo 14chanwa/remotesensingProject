@@ -204,9 +204,17 @@ public:
         for (int s=0; s<m_edge_confidence_s_v_u.size(); s++)
         {
             if (!m_accept_all)
+            {
+#ifdef _USE_DISP_CONFIDENCE_SCORE
+                validity_maps->push_back(m_disp_confidence_s_v_u[s] > m_parameters.par_disp_score_threshold);
+#else
                 validity_maps->push_back(m_edge_confidence_s_v_u[s] > m_parameters.par_edge_score_threshold);
+#endif
+            }
             else
+            {
                 validity_maps->push_back(m_edge_confidence_s_v_u[s] > -1);
+            }
         }
         return *validity_maps;
     }
@@ -843,10 +851,15 @@ Mat Depth2DComputer<DataType>::get_coloured_epi(int a_v, int a_cv_colormap) {
     for (int s=0; s<dim_s; s++)
     {
         Mat edge_confidence_mask_u = m_edge_confidence_mask_s_v_u[s].row(a_v);
+        Mat disp_confidence_mask_u = m_disp_confidence_s_v_u[s].row(a_v) > m_parameters.par_disp_score_threshold;
         for (int u=0; u<dim_u; u++)
         {
             // Only paint if the confidence threshold was high enough
+#ifdef _USE_DISP_CONFIDENCE_SCORE
+            if (disp_confidence_mask_u.at<uchar>(u))
+#else
             if (edge_confidence_mask_u.at<uchar>(u))
+#endif
             {
                 coloured_epi.at<cv::Vec3b>(s, u) = coloured_depth.at<cv::Vec3b>(s, u);
             }
@@ -870,7 +883,8 @@ Mat Depth2DComputer<DataType>::get_disparity_map(int a_s, int a_cv_colormap)
     Mat disparity_map;
     Mat best_depth_v_u = m_best_depth_s_v_u[a_s];    
     Mat edge_confidence_mask_v_u = m_edge_confidence_mask_s_v_u[a_s];    
-    Mat disp_confidence_v_u = m_disp_confidence_s_v_u[a_s];    
+    Mat disp_confidence_v_u = m_disp_confidence_s_v_u[a_s];   
+    Mat disp_confidence_mask_v_u = disp_confidence_v_u > m_parameters.par_disp_score_threshold; 
     
     disparity_map = rslf::copy_and_scale_uchar(best_depth_v_u);
     cv::applyColorMap(disparity_map, disparity_map, a_cv_colormap);
@@ -878,7 +892,11 @@ Mat Depth2DComputer<DataType>::get_disparity_map(int a_s, int a_cv_colormap)
     // Threshold scores
     Mat disparity_map_with_scores = cv::Mat::zeros(dim_v, dim_u, disparity_map.type());
     
+#ifdef _USE_DISP_CONFIDENCE_SCORE
+    cv::add(disparity_map, disparity_map_with_scores, disparity_map_with_scores, disp_confidence_mask_v_u);
+#else
     cv::add(disparity_map, disparity_map_with_scores, disparity_map_with_scores, edge_confidence_mask_v_u);
+#endif
     
     return disparity_map_with_scores;
 }

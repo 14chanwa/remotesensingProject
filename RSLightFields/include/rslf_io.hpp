@@ -37,7 +37,7 @@ Mat read_img_from_file
     std::string path_to_folder, 
     std::string name_we,
     std::string extension,
-    int cv_read_mode = CV_LOAD_IMAGE_GRAYSCALE,
+    int cv_read_mode = CV_LOAD_IMAGE_UNCHANGED,
     bool transpose = false,
     bool rotate_180 = false
 );
@@ -54,7 +54,7 @@ std::vector<Mat> read_imgs_from_folder
 (
     std::string path_to_folder,
     std::string extension,
-    int cv_read_mode = CV_LOAD_IMAGE_GRAYSCALE,
+    int cv_read_mode = CV_LOAD_IMAGE_UNCHANGED,
     bool transpose = false,
     bool rotate_180 = false
 );
@@ -164,7 +164,7 @@ Mat build_row_epi_from_path
     std::string path_to_folder,
     std::string extension,
     int row,
-    int cv_read_mode = CV_LOAD_IMAGE_GRAYSCALE,
+    int cv_read_mode = CV_LOAD_IMAGE_UNCHANGED,
     bool transpose = false,
     bool rotate_180 = false
 );

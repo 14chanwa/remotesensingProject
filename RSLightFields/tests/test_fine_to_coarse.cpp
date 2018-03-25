@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
     //~ float d_max = 8.0;
     float d_max = 4.0;
     //~ float d_max = 0.5;
-    int dim_d = 240;
+    int dim_d = 120;
     //~ int dim_d = 240;
     
     bool saturate = true;

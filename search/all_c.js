@@ -1,8 +1,8 @@
 var searchData=
 [
   ['rslightfields',['RSLightFields',['../index.html',1,'']]],
-  ['read_5fimg_5ffrom_5ffile',['read_img_from_file',['../rslf__io_8hpp.html#afaa966743ec84abd21631cefb6117c06',1,'rslf']]],
-  ['read_5fimgs_5ffrom_5ffolder',['read_imgs_from_folder',['../rslf__io_8hpp.html#a828b88ce5f5fc1a15fe36a5eef4fa842',1,'rslf']]],
+  ['read_5fimg_5ffrom_5ffile',['read_img_from_file',['../rslf__io_8hpp.html#a3f790ff30998cc536662c4c373f5af24',1,'rslf']]],
+  ['read_5fimgs_5ffrom_5ffolder',['read_imgs_from_folder',['../rslf__io_8hpp.html#a4d9b8a69af3abe457028e50e16299007',1,'rslf']]],
   ['read_5fmat_5ffrom_5fyml',['read_mat_from_yml',['../rslf__io_8hpp.html#a27cfd21ef5d83128986c939e518d0ee3',1,'rslf']]],
   ['rslf_2ehpp',['rslf.hpp',['../rslf_8hpp.html',1,'']]],
   ['rslf_5fdepth_5fcomputation_2ehpp',['rslf_depth_computation.hpp',['../rslf__depth__computation_8hpp.html',1,'']]],

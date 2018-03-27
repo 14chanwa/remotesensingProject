@@ -234,6 +234,16 @@ prior to the computation of $S(u, d)$, initializing with $\overline{\mathbf{r}} 
 \end{itemize}
 
 
+\subsection{Selective median filtering}
+
+
+We repeat the process for all the lines $v$ -- since the process is independent for each $v$, this operation can be simultaneous. When all lines $v$ have been computed, we apply a median filter on the resulting disparity map along dimensions $(v, u)$ such that in the end, for a point $(v, u)$ such that $C_e (v, u) > 0.02$, the selected value $d_{v, u}$ is the median value of the set:
+\[ \left\{ d (v', u') \; | \; (v', u') \in \mathcal{N}_\text{sel. median}(v, u), \; C_e(v', u') > \varepsilon_{C_e}, \; \norm{E_{v}(\widehat{s}, u) - E_{v'}(\widehat{s}, u')} < \varepsilon_{E} \right\}.\]
+
+$\mathcal{N}_\text{sel. median}(v, u)$ is a neighbourhood of $(v, u)$. The expected result is to filter speckles among points of the same color that are also close one to the other. After this step, all the disparities have been computed and filtered in points $(s, v, u)$ such that $C_e(s, v, u)$ was high enough.
+
+
+
 \subsection{Depth propagation along temporal axis}
 
 
@@ -254,18 +264,6 @@ After these steps, we obtain disparity values for each point such that $C_e$ was
  C_d (\widehat{s}, u) &= C_e (\widehat{s}, u) \left|\max_d S(u, d) - \underset{d}{\mathrm{mean}}\, S(u, d)\right| \label{eq:c_d}
 \end{align}
 and only retain and propagate $d$'s corresponding to points with a high $C_d$. We chose not to use this conservative criterion since it decreases significantly the number of valid estimations and tend to erase mildly sharp borders on buildings in our satellite images, as shown in Section \ref{sec:results}.
-
-
-\subsection{Selective median filtering}
-
-
-We repeat the process for all the lines $v$ -- since the process is independent for each $v$, this operation can be simultaneous.
-
-
-When all lines $v$ have been computed, we apply a median filter on the resulting disparity map along dimensions $(v, u)$ such that in the end, for a point $(v, u)$ such that $C_e (v, u) > 0.02$, the selected value $d_{v, u}$ is the median value of the set:
-\[ \left\{ d (v', u') \; | \; (v', u') \in \mathcal{N}_\text{sel. median}(v, u), \; C_e(v', u') > \varepsilon_{C_e}, \; \norm{E_{v}(\widehat{s}, u) - E_{v'}(\widehat{s}, u')} < \varepsilon_{E} \right\}.\]
-
-$\mathcal{N}_\text{sel. median}(v, u)$ is a neighbourhood of $(v, u)$. The expected result is to filter speckles among points of the same color that are also close one to the other. After this step, all the disparities have been computed and filtered in points $(s, v, u)$ such that $C_e(s, v, u)$ was high enough.
 
 
 \subsection{Fine-to-coarse approach}
@@ -326,7 +324,7 @@ The pyramid process is represented in Figure \ref{fig:pyramid}. The confidence s
   \includegraphics[width=0.025\textwidth]{images/pyr/1521751973001_pyr_epi_004.png}
   \includegraphics[width=0.0125\textwidth]{images/pyr/1521751973001_pyr_epi_005.png}
   \includegraphics[width=0.00625\textwidth]{images/pyr/1521751973001_pyr_epi_006.png}
-  \caption{Pyramid of downsampled disparity maps and sample EPIs (after disparity computation) for the Skysat sequence with step 18 (SkysatLR18, top) and mansion sequence (MansionLR, bottom). Dark zones are either erased as shading or having a low edge confidence score $C_e$.}
+  \caption{Pyramid of downsampled disparity maps and sample EPIs (after disparity computation) for the Skysat sequence with step 18 (SkysatLR18, top) and mansion sequence (MansionLR, bottom) with $240$ candidate values for $d$. Dark zones are either erased as shading or having a low edge confidence score $C_e$.}
   \label{fig:pyramid}
 \end{figure}
 
@@ -444,38 +442,48 @@ We could also redefine the norm for four-channel images for instance with a fact
 \end{table}
 
 
-\subsection{Disparity confidence score criterion}
+\subsection{Disparity confidence score}
 
 
-We tried to apply the confidence criterion $C_d$ described in \cite{art:kim13:lfields} and defined in Equation \eqref{eq:c_d}:
+We first applied the confidence criterion $C_d$ described in \cite{art:kim13:lfields} and defined in Equation \eqref{eq:c_d}:
 \begin{align*}
  C_d (\widehat{s}, u) &= C_e (\widehat{s}, u) \left|\max_d S(u, d) - \underset{d}{\mathrm{mean}}\, S(u, d)\right|.
 \end{align*}
-As mentionned before, this criterion proves too conservative for the mildly defined borders of the buildings in our Skysat dataset. This results in some borders not being detected: this behaviour will later perturbate the fine-to-coarse process and the coarse scale estimation will be flawed. We illustrate this phenomenon in the comparison shown in Figure \ref{fig:c_d_comparison}. Moreover, using $C_d$ increases computation times significantly: we thus decided not to use this criterion in the other experiments and use only $C_e$ as a propagation criterion.
+As mentionned before, for high threshold values, this criterion proves too conservative for the mildly defined borders of the buildings in our Skysat dataset. This results in some borders not being detected: this behaviour will later perturbate the fine-to-coarse process and the coarse scale estimation will be flawed. We illustrate this phenomenon in the comparison shown in Figure \ref{fig:c_d_comparison}. For low threshold values, the results are similar to those obtained using only $C_e$ as a confidence criterion. Moreover, this criterion seems to depend on the range of the candidate $d$'s and on the disparities in the image and thus do not seem to generalize well, and using $C_d$ increases computation times significantly: we thus decided not to use this criterion in the other experiments and use only $C_e$ as a confidence criterion.
 
 
 \begin{figure}[ht]
  \centering
  \begin{tabular}{|c||c|c|c|}
  \hline
-  \rotatebox[origin=l]{90}{1st scale} & 
-  \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_010_1stsc.png} &
+%   \rotatebox[origin=l]{90}{$C_d=0.1$} & 
+%   \includegraphics[height=\cropcHeight]{images/crop_comparison/crop_toit_triangle.png} &
+%   \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_010_1stsc.png} &
+%   \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_010.png}
+%   \\[-0.5em]
+%   \hline
+  \rotatebox[origin=l]{90}{$C_d=0.05$} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/crop_toit_triangle.png} &
   \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_005_1stsc.png} &
-  \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_000_1stsc.png}\\[-0.5em]
+  \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_005.png}\\[-0.5em]
   \hline
-  \rotatebox[origin=l]{90}{Result} &
-  \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_010.png} &
-  \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_005.png} &
-  \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_000.png}\\[-0.5em]
-  \hline
-  \rotatebox[origin=l]{90}{Original} &
+  \rotatebox[origin=l]{90}{$C_d=0.02$} &
   \includegraphics[height=\cropcHeight]{images/crop_comparison/crop_toit_triangle.png} &
-  \includegraphics[height=\cropcHeight]{images/crop_comparison/crop_toit_triangle.png} &
-  \includegraphics[height=\cropcHeight]{images/crop_comparison/crop_toit_triangle.png}\\[-0.5em]
+  \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_002_1stsc.png} &
+  \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_002.png}\\[-0.5em]
   \hline
-  & $C_d=0.1$ & $C_d=0.05$ & Not using $C_d$ \\ \hline
+  \rotatebox[origin=l]{90}{$C_d=0.01$} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/crop_toit_triangle.png} &
+  \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_001_1stsc.png} &
+  \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_001.png}\\[-0.5em]
+  \hline
+  \rotatebox[origin=l]{90}{Not using $C_d$} &
+  \includegraphics[height=\cropcHeight]{images/crop_comparison/crop_toit_triangle.png} &
+  \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_000_1stsc.png} & \includegraphics[height=\cropcHeight]{images/disp_confidence/crop_disparity_score_000.png}\\[-0.5em]
+  \hline
+  & Original & 1st scale & Result \\ \hline
  \end{tabular}
- \caption{Comparison of the results by using $C_d > 0.1$ (left, value used in \cite{art:kim13:lfields}), $C_d > 0.05$ (middle), and not using $C_d$ (right) on SkysatLR18 $[120]$, frame $50$. We represent the results of the first scale computation ($p=0$, top), the final depth map after fine-to-coarse (middle) and the original frame (bottom). The computation times were $4511$, $3148$ and $448$ seconds.}
+ \caption{Comparison of the results by using $C_d > 0.05,\, 0.02, \, 0.01$ and not using $C_d$ (the value used in \cite{art:kim13:lfields} is $C_d > 0.1$), on SkysatLR18 $[120]$, frame $50$. We represent the results of the first scale disparity computation ($p=0$) and the final depth map after fine-to-coarse (right). The computation times were respectively $3148$, $1878$, $1462$ and $448$ seconds.} %  ($4511$ for $C_d > 0.1$
  \label{fig:c_d_comparison}
 \end{figure}
 
@@ -513,7 +521,7 @@ Overall the resolution seems to have a significative influence on the precision 
 \subsection{Influence of the slope amplitude} 
 
 
-We investigate the performance of the algorithm with very small slopes with a sequence of Skysat with slower variations (SkysatLR01). A sample EPI is presented in Figure \ref{fig:epi:skysat1}. This example is harder since the variations are mostly under the scale of a pixel. We ran the algorithm with a choice of $d_{\min} = -0.5$ to $d_{\max} = 0.5$ and $120$ steps. Some results are presented in Figure \ref{fig:skysatlr01:candidated} and close-ups are presented in Figure \ref{fig:comparison_details}. These results are quite satisfactory given the small slopes to be measured, but show globally some underestimated slopes on the top of the buildings. We assume these are due to the fact that the disparities are harder to be estimated when undersampling - these may be improved by using better interpolation formulae.
+We investigate the performance of the algorithm with very small slopes with a sequence of Skysat with slower variations (SkysatLR01). A sample EPI is presented in Figure \ref{fig:epi:skysat1}. This example is harder since the variations are mostly under the scale of a pixel. We ran the algorithm with a choice of $d_{\min} = -0.5$ to $d_{\max} = 0.5$ and $120$ steps. Some results are presented in Figure \ref{fig:skysatlr01:candidated} and close-ups are presented in Figure \ref{fig:comparison_details}. These results are quite satisfactory given the small slopes to be measured, but show globally some underestimated slopes on the top of the buildings. We assume these are due to the fact that the disparities are harder to be estimated when undersampling - these may be improved by using better interpolation formulae in the algorithm, or dilate the $u$ axis using a good interpolation method as a preprocessing step.
 
 
 \begin{figure}[ht]

@@ -18,7 +18,7 @@
 #define _MEDIAN_FILTER_SIZE 5
 #define _MEDIAN_FILTER_EPSILON 0.1
 #define _EDGE_SCORE_THRESHOLD 0.02
-#define _DISP_SCORE_THRESHOLD 0.05
+#define _DISP_SCORE_THRESHOLD 0.01
 #define _PROPAGATION_EPSILON 0.1
 
 #define _BANDWIDTH_KERNEL_PARAMETER 0.2
@@ -30,7 +30,7 @@
 // between 0 and 1, 0 being dark and 1 being blank
 // multiplied by sqrt(3) for consistency with 3channels
 
-//#define _USE_DISP_CONFIDENCE_SCORE
+//~ #define _USE_DISP_CONFIDENCE_SCORE
 // if not defined, will use C_e as the propagation threshold, else will
 // use C_d > par_disp_score_threshold.
 

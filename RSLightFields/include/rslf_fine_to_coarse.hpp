@@ -465,11 +465,11 @@ void FineToCoarse<DataType>::get_coloured_epi_pyr(Vec<Mat>& out_plot_epi_pyr_p_s
         {
             for (int u=0; u<dim_u; u++)
             {
-                Mat tmp = m_computers[0]->get_epis()[v];
+                Mat tmp = m_computers[p]->get_epis()[v_scaled];
                 epi_norm.at<float>(s, u) = norm<DataType>(tmp.at<DataType>(s, u));
             }
         }
-        tmp.setTo(0.0, epi_norm < _SHADOW_NORMALIZED_LEVEL);
+        tmp.setTo(cv::Scalar(0.0), epi_norm < _SHADOW_NORMALIZED_LEVEL);
         
         out_plot_epi_pyr_p_s_u_.push_back(tmp);
     }

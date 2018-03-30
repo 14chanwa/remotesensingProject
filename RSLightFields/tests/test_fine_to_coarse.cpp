@@ -44,8 +44,8 @@ int main(int argc, char* argv[])
     //~ float d_max = 8.0;
     float d_max = 4.0;
     //~ float d_max = 0.5;
-    //~ int dim_d = 120;
-    int dim_d = 240;
+    int dim_d = 120;
+    //~ int dim_d = 240;
     
     bool saturate = true;
     //~ int colormap = cv::COLORMAP_HOT;
@@ -53,7 +53,10 @@ int main(int argc, char* argv[])
     
     std::cout << dim_d << " d values requested" << std::endl;
     
-    //~ rslf::FineToCoarse_1ch fine_to_coarse(epis, d_min, d_max, dim_d);
+    rslf::Depth1DParameters<float> parameters;
+    parameters.par_cut_shadows = false; // disable shadows?
+    
+    //~ rslf::FineToCoarse_1ch fine_to_coarse(epis, d_min, d_max, dim_d, -1, parameters);
     rslf::FineToCoarse_3ch fine_to_coarse(epis, d_min, d_max, dim_d);
     //~ rslf::FineToCoarse<float> fine_to_coarse(epis, d_min, d_max, dim_d, -1, rslf::Depth1DParameters<float>::get_default(), -1, true);
     //~ rslf::FineToCoarse<cv::Vec3f> fine_to_coarse(epis, d_min, d_max, dim_d);

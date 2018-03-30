@@ -75,6 +75,7 @@ public:
 
 private:
     Vec<Depth2DComputer<DataType>* > m_computers;
+    const Depth1DParameters<DataType>& m_parameters;
     Vec<Depth1DParameters<DataType>* > m_parameter_instances;
     bool m_accept_all_last_scale;
 };
@@ -110,7 +111,8 @@ FineToCoarse<DataType>::FineToCoarse
     const Depth1DParameters<DataType>& parameters,
     int max_pyr_depth,
     bool accept_all_last_scale
-)
+) :
+    m_parameters(parameters)
 {
     Vec<Mat> tmp_epis = epis;
     
@@ -131,7 +133,7 @@ FineToCoarse<DataType>::FineToCoarse
         
         std::cout << "Creating Depth2DComputer with sizes (" << dim_v << ", " << dim_u << ")" << std::endl;
         
-        Depth1DParameters<DataType>* new_parameters = new Depth1DParameters<DataType>(parameters);
+        Depth1DParameters<DataType>* new_parameters = new Depth1DParameters<DataType>(m_parameters);
         
         // Compute scale factor
         new_parameters->par_slope_factor = (0.0 + dim_u) / start_dim_u;
@@ -353,17 +355,21 @@ void FineToCoarse<DataType>::get_coloured_depth_maps(Vec<Mat>& out_plot_depth_s_
         // Threshold scores
         disparity_map.setTo(0.0, out_validity_s_v_u_[s] == 0);
         
-        // Get image norm view
-        Mat im_norm = Mat(dim_v, dim_u, CV_32FC1);
-        for (int v=0; v<dim_v; v++)
+        // Cut shadows
+        if (m_parameters.par_cut_shadows)
         {
-            for (int u=0; u<dim_u; u++)
+            // Get image norm view
+            Mat im_norm = Mat(dim_v, dim_u, CV_32FC1);
+            for (int v=0; v<dim_v; v++)
             {
-                Mat tmp = m_computers[0]->get_epis()[v];
-                im_norm.at<float>(v, u) = norm<DataType>(tmp.at<DataType>(s, u));
+                for (int u=0; u<dim_u; u++)
+                {
+                    Mat tmp = m_computers[0]->get_epis()[v];
+                    im_norm.at<float>(v, u) = norm<DataType>(tmp.at<DataType>(s, u));
+                }
             }
+            disparity_map.setTo(0.0, im_norm < _SHADOW_NORMALIZED_LEVEL);
         }
-        disparity_map.setTo(0.0, im_norm < _SHADOW_NORMALIZED_LEVEL);
         
         out_plot_depth_s_v_u_.push_back(disparity_map);
     }
@@ -459,17 +465,21 @@ void FineToCoarse<DataType>::get_coloured_epi_pyr(Vec<Mat>& out_plot_epi_pyr_p_s
         image_converter.copy_and_scale(tmp, tmp);
         cv::applyColorMap(tmp, tmp, cv_colormap);
         
-        // Get epi norm view
-        Mat epi_norm = Mat(dim_s, dim_u, CV_32FC1);
-        for (int s=0; s<dim_s; s++)
+        // Cut shadows
+        if (m_parameters.par_cut_shadows)
         {
-            for (int u=0; u<dim_u; u++)
+            // Get epi norm view
+            Mat epi_norm = Mat(dim_s, dim_u, CV_32FC1);
+            for (int s=0; s<dim_s; s++)
             {
-                Mat tmp = m_computers[p]->get_epis()[v_scaled];
-                epi_norm.at<float>(s, u) = norm<DataType>(tmp.at<DataType>(s, u));
+                for (int u=0; u<dim_u; u++)
+                {
+                    Mat tmp = m_computers[p]->get_epis()[v_scaled];
+                    epi_norm.at<float>(s, u) = norm<DataType>(tmp.at<DataType>(s, u));
+                }
             }
+            tmp.setTo(cv::Scalar(0.0), epi_norm < _SHADOW_NORMALIZED_LEVEL);
         }
-        tmp.setTo(cv::Scalar(0.0), epi_norm < _SHADOW_NORMALIZED_LEVEL);
         
         out_plot_epi_pyr_p_s_u_.push_back(tmp);
     }

@@ -1,6 +1,7 @@
 #include <opencv2/core/core.hpp>
 #include <string>
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <rslf.hpp>
 #include <rslf_depth_computation.hpp>
@@ -47,7 +48,8 @@ int main(int argc, char* argv[])
     //~ float d_min = -5.5;
     //~ float d_max = 5.5;
     //~ float d_max = 0.5;
-    int dim_d = 240;
+    //~ int dim_d = 240;
+    int dim_d = 120;
     
     std::cout << dim_d << " d values requested" << std::endl;
     
@@ -95,6 +97,45 @@ int main(int argc, char* argv[])
         base_filename + "_epi_colored",
         "png"
     );
+    
+    rslf::write_mat_to_yml
+    (
+        depth_computer_2d.m_edge_confidence_s_v_u[50],
+        "../output/",
+        "output_edge_confidence"
+    );
+    rslf::write_mat_to_yml
+    (
+        depth_computer_2d.m_disp_confidence_s_v_u[50],
+        "../output/",
+        "output_disp_confidence"
+    );
+    rslf::write_mat_to_yml
+    (
+        depth_computer_2d.m_line_confidence_s_v_u[50],
+        "../output/",
+        "output_line_confidence"
+    );
+    
+    // Write csv
+    std::ofstream out_e;
+    out_e.open("../output/output_edge_confidence.csv");
+    std::ofstream out_l;
+    out_l.open("../output/output_line_confidence.csv");
+    for (int i=0; i<depth_computer_2d.m_edge_confidence_s_v_u[50].rows; i++)
+    {
+        for (int j=0; j<depth_computer_2d.m_edge_confidence_s_v_u[50].cols; j++)
+        {
+            if (depth_computer_2d.m_edge_confidence_mask_s_v_u[50].at<uchar>(i, j))
+            {
+                out_e << depth_computer_2d.m_edge_confidence_s_v_u[50].at<float>(i, j) << std::endl;
+                out_l << depth_computer_2d.m_line_confidence_s_v_u[50].at<float>(i, j) << std::endl;
+            }
+        }
+    }
+    out_e.close();
+    out_l.close();
+    
     
     //~ rslf::plot_mat(disparity_map, "Disparity map");
     rslf::plot_mat(coloured_epi, "EPI + depth");

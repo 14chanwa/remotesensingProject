@@ -207,7 +207,7 @@ The disparity estimation process is detailed in Figure \ref{drawing:depth_estima
 \mathcal{R}(u, d) &= \left\{ E(u + (\widehat{s} - s) d, s) \; | \; s = 0 \cdots S-1 \right\}.
 \end{align}
 
-We then compute a score $S(u, d)$ defined as:
+We then select the $d$ with the best score $S(u, d)$ defined as:
 \begin{align} 
 S(u, d) = \frac{1}{\abs{\mathcal{R}(u, d)}} \sum_{\mathbf{r} \in \mathcal{R}(u, d)} K(\mathbf{r} - \overline{\mathbf{r}})
 \end{align}
@@ -238,7 +238,7 @@ prior to the computation of $S(u, d)$, initializing with $\overline{\mathbf{r}} 
 \subsection{Selective median filtering}
 
 
-We repeat the process for all the lines $v$ -- since the process is independent for each $v$, this operation can be simultaneous. When all lines $v$ have been computed, we apply a median filter on the resulting disparity map along dimensions $(v, u)$ such that in the end, for a point $(v, u)$ such that $C_e (v, u) > 0.02$, the selected value $d_{v, u}$ is the median value of the set:
+We repeat the process for all the lines $v$ -- since the process is independent for each $v$, this operation can be simultaneous. When all lines $v$ have been computed, we apply a median filter on the resulting disparity map along dimensions $(v, u)$ such that in the end, for a point $(v, u)$ such that $C_e (v, u) > \varepsilon_{C_e}$, the selected value $d_{v, u}$ is the median value of the set:
 \[ \left\{ d (v', u') \; | \; (v', u') \in \mathcal{N}_\text{sel. median}(v, u), \; C_e(v', u') > \varepsilon_{C_e}, \; \norm{E_{v}(\widehat{s}, u) - E_{v'}(\widehat{s}, u')} < \varepsilon_{E} \right\}.\]
 
 $\mathcal{N}_\text{sel. median}(v, u)$ is a neighbourhood of $(v, u)$. The expected result is to filter speckles among points of the same color that are also close one to the other. After this step, all the disparities have been computed and filtered in points $(s, v, u)$ such that $C_e(s, v, u)$ was high enough.

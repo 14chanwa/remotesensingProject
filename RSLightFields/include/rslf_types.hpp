@@ -69,12 +69,40 @@ cv::Scalar zero_scalar<float>();
 template<>
 cv::Scalar zero_scalar<cv::Vec3f>();
 
+
+/**
+ * \brief "No array" static value
+ */
+static Mat no_array = Mat();
+
+/**
+ * \brief "No Vec<Mat>" static value
+ */
+static Vec<Mat> no_vec = Vec<Mat>();
+
 /**
  * \brief Implement the euclidean norm
  */
 template<typename DataType>
 float norm(DataType x);
 
+/**
+ * \brief Elementwise sinus
+ */
+template<typename DataType>
+void sin_mat(const Mat& src, Mat& dst);
+
+/**
+ * \brief Elementwise cosinus
+ */
+template<typename DataType>
+void cos_mat(const Mat& src, Mat& dst);
+
+/**
+ * \brief Performs I(x) <- I(x-t)
+ */
+template<typename DataType>
+void fft_htranslate(const Mat& src, float tr_amount, Mat& dst);
 
 }
 

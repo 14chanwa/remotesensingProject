@@ -104,12 +104,10 @@ void Interpolation1DNearestNeighbour<DataType>::interpolate_mat
     //~ assert(indices.rows == data_matrix.rows);
     //~ if (res.empty() || res.size != data_matrix.size || res.type() != data_matrix.type())
         //~ res = cv::Mat::zeros(indices.rows, indices.cols, data_matrix.type());
-    
-    //~ // Round indices
-    //~ Mat round_indices_matrix;
-    //~ indices.convertTo(round_indices_matrix, CV_32SC1, 1.0, 0.0);
-    //~ res.setTo(zero_scalar<DataType>());
-    card_non_nan.setTo(0.0);
+    //~ if (card_non_nan.empty() || card_non_nan.size != data_matrix.size || card_non_nan.type() != CV_32FC1)
+        //~ card_non_nan = cv::Mat::zeros(indices.rows, indices.cols, CV_32FC1);
+    //~ else
+        card_non_nan.setTo(0.0);
     
     // For each row
     for (int r=0; r<indices.rows; r++) {
@@ -163,12 +161,13 @@ void Interpolation1DLinear<DataType>::interpolate_mat
     Mat& card_non_nan
 )
 {
-    // TODO is there a better way to vectorize?
     //~ assert(indices.rows == data_matrix.rows);
     //~ if (res.empty() || res.size != data_matrix.size || res.type() != data_matrix.type())
         //~ res = cv::Mat::zeros(indices.rows, indices.cols, data_matrix.type());
-    //~ res.setTo(zero_scalar<DataType>());
-    card_non_nan.setTo(0.0);
+    //~ if (card_non_nan.empty() || card_non_nan.size != data_matrix.size || card_non_nan.type() != CV_32FC1)
+        //~ card_non_nan = cv::Mat::zeros(indices.rows, indices.cols, CV_32FC1);
+    //~ else
+        card_non_nan.setTo(0.0);
     
     // For each row
     for (int r=0; r<indices.rows; r++) {

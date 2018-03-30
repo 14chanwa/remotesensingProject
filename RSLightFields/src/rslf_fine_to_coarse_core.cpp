@@ -105,6 +105,7 @@ void rslf::fuse_disp_maps
             // Upscale
             // TODO: interpolation type?
             cv::resize(tmp_map_down, tmp_map_up, disp_pyr_v_u_[p-1].size(), 0, 0, cv::INTER_LINEAR);
+            //~ cv::resize(tmp_map_down, tmp_map_up, disp_pyr_v_u_[p-1].size(), 0, 0, cv::INTER_NEAREST);
             cv::resize(tmp_mask_down, tmp_mask_up, mask_pyr_v_u_[p-1].size(), 0, 0, cv::INTER_NEAREST);
             
             // Fill unknown points 

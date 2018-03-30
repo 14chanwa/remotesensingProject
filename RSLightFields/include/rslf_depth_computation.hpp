@@ -193,51 +193,24 @@ public:
      */
     Mat get_disparity_map(int a_s = -1, int a_cv_colormap = cv::COLORMAP_JET);
     
-    const Vec<Mat>& get_depths_s_v_u()
-    {
-        return m_best_depth_s_v_u;
-    }
+    const Vec<Mat>& get_depths_s_v_u() { return m_best_depth_s_v_u; }
     
-    const Vec<Mat>& get_valid_depths_mask_s_v_u()
-    {
-        Vec<Mat>* validity_maps = new Vec<Mat>();
-        for (int s=0; s<m_edge_confidence_s_v_u.size(); s++)
-        {
-            if (!m_accept_all)
-            {
-#ifdef _USE_DISP_CONFIDENCE_SCORE
-                validity_maps->push_back(m_disp_confidence_s_v_u[s] > m_parameters.par_disp_score_threshold);
-#else
-                validity_maps->push_back(m_edge_confidence_s_v_u[s] > m_parameters.par_edge_score_threshold);
-#endif
-            }
-            else
-            {
-                validity_maps->push_back(m_edge_confidence_s_v_u[s] > -1);
-            }
-        }
-        return *validity_maps;
-    }
+    const Vec<Mat>& get_valid_depths_mask_s_v_u();
 
-    const Vec<Mat>& get_epis()
-    {
-        return m_epis;
-    }
+    const Vec<Mat>& get_epis() { return m_epis; }
     
-    Vec<Mat>& edit_dmin()
-    {
-        return m_dmin_s_v_u;
-    }
+    Vec<Mat>& edit_dmin() { return m_dmin_s_v_u; }
     
-    Vec<Mat>& edit_dmax()
-    {
-        return m_dmax_s_v_u;
-    }
+    Vec<Mat>& edit_dmax() { return m_dmax_s_v_u; }
     
-    void set_accept_all(bool b)
-    {
-        m_accept_all = b;
-    }
+    void set_accept_all(bool b) { m_accept_all = b; }
+    
+    Vec<Mat> m_edge_confidence_s_v_u;
+    Vec<Mat> m_edge_confidence_mask_s_v_u;
+    Vec<Mat> m_disp_confidence_s_v_u;
+    Vec<Mat> m_line_confidence_s_v_u;
+    Vec<Mat> m_rbar_s_v_u;
+    Vec<Mat> m_best_depth_s_v_u;
 
 private:
     Vec<Mat> m_epis;
@@ -245,12 +218,6 @@ private:
     int m_dim_d;
     Vec<Mat> m_dmin_s_v_u;
     Vec<Mat> m_dmax_s_v_u;
-    
-    Vec<Mat> m_edge_confidence_s_v_u;
-    Vec<Mat> m_edge_confidence_mask_s_v_u;
-    Vec<Mat> m_disp_confidence_s_v_u;
-    Vec<Mat> m_rbar_s_v_u;
-    Vec<Mat> m_best_depth_s_v_u;
     
     bool m_accept_all = false;
     
@@ -749,6 +716,7 @@ Depth2DComputer<DataType>::Depth2DComputer
     
     m_edge_confidence_s_v_u = Vec<Mat>(dim_s);
     m_disp_confidence_s_v_u = Vec<Mat>(dim_s);
+    m_line_confidence_s_v_u = Vec<Mat>(dim_s);
     m_best_depth_s_v_u = Vec<Mat>(dim_s);
     m_rbar_s_v_u = Vec<Mat>(dim_s);
 
@@ -759,6 +727,9 @@ Depth2DComputer<DataType>::Depth2DComputer
     
         // Disparity confidence
         m_disp_confidence_s_v_u[s] = Mat(dim_v, dim_u, CV_32FC1);
+        
+        // Line confidence
+        m_line_confidence_s_v_u[s] = Mat(dim_v, dim_u, CV_32FC1);
         
         // Scores and best scores & depths
         m_best_depth_s_v_u[s] = cv::Mat::zeros(dim_v, dim_u, CV_32FC1);
@@ -811,6 +782,7 @@ void Depth2DComputer<DataType>::run()
         m_edge_confidence_s_v_u,
         m_edge_confidence_mask_s_v_u,
         m_disp_confidence_s_v_u,
+        m_line_confidence_s_v_u,
         m_best_depth_s_v_u,
         m_rbar_s_v_u,
         m_parameters,
@@ -851,12 +823,15 @@ Mat Depth2DComputer<DataType>::get_coloured_epi(int a_v, int a_cv_colormap) {
     for (int s=0; s<dim_s; s++)
     {
         Mat edge_confidence_mask_u = m_edge_confidence_mask_s_v_u[s].row(a_v);
+        Mat line_confidence_mask_u = m_line_confidence_s_v_u[s].row(a_v) > m_parameters.par_line_score_threshold;
         Mat disp_confidence_mask_u = m_disp_confidence_s_v_u[s].row(a_v) > m_parameters.par_disp_score_threshold;
         for (int u=0; u<dim_u; u++)
         {
             // Only paint if the confidence threshold was high enough
 #ifdef _USE_DISP_CONFIDENCE_SCORE
             if (disp_confidence_mask_u.at<uchar>(u))
+#elseif define(_USE_LINE_CONFIDENCE_SCORE)
+            if (line_confidence_mask_u.at<uchar>(u))
 #else
             if (edge_confidence_mask_u.at<uchar>(u))
 #endif
@@ -882,9 +857,6 @@ Mat Depth2DComputer<DataType>::get_disparity_map(int a_s, int a_cv_colormap)
     
     Mat disparity_map;
     Mat best_depth_v_u = m_best_depth_s_v_u[a_s];    
-    Mat edge_confidence_mask_v_u = m_edge_confidence_mask_s_v_u[a_s];    
-    Mat disp_confidence_v_u = m_disp_confidence_s_v_u[a_s];   
-    Mat disp_confidence_mask_v_u = disp_confidence_v_u > m_parameters.par_disp_score_threshold; 
     
     disparity_map = rslf::copy_and_scale_uchar(best_depth_v_u);
     cv::applyColorMap(disparity_map, disparity_map, a_cv_colormap);
@@ -893,12 +865,43 @@ Mat Depth2DComputer<DataType>::get_disparity_map(int a_s, int a_cv_colormap)
     Mat disparity_map_with_scores = cv::Mat::zeros(dim_v, dim_u, disparity_map.type());
     
 #ifdef _USE_DISP_CONFIDENCE_SCORE
+    Mat disp_confidence_v_u = m_disp_confidence_s_v_u[a_s];   
+    Mat disp_confidence_mask_v_u = disp_confidence_v_u > m_parameters.par_disp_score_threshold; 
     cv::add(disparity_map, disparity_map_with_scores, disparity_map_with_scores, disp_confidence_mask_v_u);
+#elseif defined(_USE_LINE_CONFIDENCE_SCORE)
+    Mat line_confidence_v_u = m_line_confidence_s_v_u[a_s];   
+    Mat line_confidence_mask_v_u = line_confidence_v_u > m_parameters.par_line_score_threshold; 
+    cv::add(disparity_map, disparity_map_with_scores, disparity_map_with_scores, line_confidence_mask_v_u);
 #else
+    Mat edge_confidence_mask_v_u = m_edge_confidence_mask_s_v_u[a_s];   
     cv::add(disparity_map, disparity_map_with_scores, disparity_map_with_scores, edge_confidence_mask_v_u);
 #endif
     
     return disparity_map_with_scores;
+}
+
+template<typename DataType>
+const Vec<Mat>& Depth2DComputer<DataType>::get_valid_depths_mask_s_v_u()
+{
+    Vec<Mat>* validity_maps = new Vec<Mat>();
+    for (int s=0; s<m_edge_confidence_s_v_u.size(); s++)
+    {
+        if (!m_accept_all)
+        {
+#ifdef _USE_DISP_CONFIDENCE_SCORE
+            validity_maps->push_back(m_disp_confidence_s_v_u[s] > m_parameters.par_disp_score_threshold);
+#elseif defined(_USE_LINE_CONFIDENCE_SCORE)
+            validity_maps->push_back(m_line_confidence_s_v_u[s] > m_parameters.par_line_score_threshold);
+#else
+            validity_maps->push_back(m_edge_confidence_s_v_u[s] > m_parameters.par_edge_score_threshold);
+#endif
+        }
+        else
+        {
+            validity_maps->push_back(m_edge_confidence_s_v_u[s] > -1);
+        }
+    }
+    return *validity_maps;
 }
 
 }

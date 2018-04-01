@@ -20,7 +20,7 @@
 #define _EDGE_SCORE_THRESHOLD 0.02
 #define _LINE_SCORE_THRESHOLD 0.02
 #define _DISP_SCORE_THRESHOLD 0.01
-#define _RAW_SCORE_THRESHOLD 0.6 // 0.9
+#define _RAW_SCORE_THRESHOLD 0 //0.6 // 0.9 // Scores under this threshold will not be considered
 #define _PROPAGATION_EPSILON 0.1
 
 #define _BANDWIDTH_KERNEL_PARAMETER 0.2
@@ -33,7 +33,7 @@
 // multiplied by sqrt(3) for consistency with 3channels
 
 //~ #define _USE_DISP_CONFIDENCE_SCORE  // will use C_d > par_disp_score_threshold.
-#define _USE_LINE_CONFIDENCE_SCORE  // will use C_l > par_line_score_threshold.
+//~ #define _USE_LINE_CONFIDENCE_SCORE  // will use C_l > par_line_score_threshold.
 // if neither one of the flag is defined, will use C_e as the propagation threshold
 
 
@@ -171,7 +171,8 @@ struct BufferDepth1D {
 
         buf_card_R = Mat(1, a_dim_d, CV_32FC1);
         buf_radiances_s_d = cv::Mat::zeros(a_dim_s, a_dim_d, a_data_type);
-
+        
+#ifdef _USE_LINE_CONFIDENCE_SCORE
         buf_lineconf_S = Mat(a_dim_s, 1, CV_32FC1);
         buf_lineconf_range_0_u_row = Mat(1, a_dim_u, CV_32FC1);
         for (int u=0; u<a_dim_u; u++)
@@ -184,6 +185,7 @@ struct BufferDepth1D {
         buf_lineconf_edge_confidence_s_u = Mat(a_dim_s, a_dim_u, CV_32FC1);
         buf_lineconf_edge_confidence_interpolated = cv::Mat::zeros(a_dim_s, a_dim_u, CV_32FC1);
         buf_lineconf_card_R = cv::Mat::zeros(1, a_dim_u, CV_32FC1);
+#endif
     }
     
     Vec<cv::Point>  buf_locations;
@@ -1000,7 +1002,9 @@ void compute_2D_depth_epi(
         edge_confidence_v_u = a_edge_confidence_s_v_u[s_hat];
         edge_confidence_mask_v_u = a_edge_confidence_mask_s_v_u[s_hat];
         disp_confidence_v_u = a_disp_confidence_s_v_u[s_hat];
+#ifdef _USE_LINE_CONFIDENCE_SCORE
         line_confidence_v_u = a_line_confidence_s_v_u[s_hat];
+#endif
         best_depth_v_u      = a_best_depth_s_v_u[s_hat];
         rbar_v_u            = a_rbar_s_v_u[s_hat];
         mask_v_u            = mask_s_v_u[s_hat];
@@ -1025,7 +1029,7 @@ void compute_2D_depth_epi(
         
         
         // Compute line confidence
-        
+#ifdef _USE_LINE_CONFIDENCE_SCORE
         if (a_verbose)
             std::cout << "Computing line confidence..." << std::endl;
         
@@ -1074,6 +1078,7 @@ void compute_2D_depth_epi(
             // Only define positive line_confidence on u's such that the edge confidence is > thr
             cv::add(_tmp1 / _tmp2, 0.0, line_confidence_v_u.row(v), edge_confidence_mask_v_u.row(v));
         }
+#endif
         
         if (a_verbose)
             std::cout << "Propagation..." << std::endl;
@@ -1114,7 +1119,9 @@ void compute_2D_depth_epi(
                             a_best_depth_s_v_u[s].at<float>(v, requested_index) = current_depth_value;
                             mask_s_v_u[s].at<uchar>(v, requested_index) = 0;
                             a_disp_confidence_s_v_u[s].at<float>(v, requested_index) = disp_confidence_v_u.at<float>(v, u);
+#ifdef _USE_LINE_CONFIDENCE_SCORE
                             a_line_confidence_s_v_u[s].at<float>(v, requested_index) = line_confidence_v_u.at<float>(v, u);
+#endif
                         }
                     }
                 }

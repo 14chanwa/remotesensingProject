@@ -110,18 +110,18 @@ int main(int argc, char* argv[])
         "../output/",
         "output_disp_confidence"
     );
-    rslf::write_mat_to_yml
-    (
-        depth_computer_2d.m_line_confidence_s_v_u[50],
-        "../output/",
-        "output_line_confidence"
-    );
+    //~ rslf::write_mat_to_yml
+    //~ (
+        //~ depth_computer_2d.m_line_confidence_s_v_u[50],
+        //~ "../output/",
+        //~ "output_line_confidence"
+    //~ );
     
     // Write csv
     std::ofstream out_e;
     out_e.open("../output/output_edge_confidence.csv");
-    std::ofstream out_l;
-    out_l.open("../output/output_line_confidence.csv");
+    //~ std::ofstream out_l;
+    //~ out_l.open("../output/output_line_confidence.csv");
     for (int i=0; i<depth_computer_2d.m_edge_confidence_s_v_u[50].rows; i++)
     {
         for (int j=0; j<depth_computer_2d.m_edge_confidence_s_v_u[50].cols; j++)
@@ -129,12 +129,12 @@ int main(int argc, char* argv[])
             if (depth_computer_2d.m_edge_confidence_mask_s_v_u[50].at<uchar>(i, j))
             {
                 out_e << depth_computer_2d.m_edge_confidence_s_v_u[50].at<float>(i, j) << std::endl;
-                out_l << depth_computer_2d.m_line_confidence_s_v_u[50].at<float>(i, j) << std::endl;
+                //~ out_l << depth_computer_2d.m_line_confidence_s_v_u[50].at<float>(i, j) << std::endl;
             }
         }
     }
     out_e.close();
-    out_l.close();
+    //~ out_l.close();
     
     
     //~ rslf::plot_mat(disparity_map, "Disparity map");

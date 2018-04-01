@@ -208,7 +208,9 @@ public:
     Vec<Mat> m_edge_confidence_s_v_u;
     Vec<Mat> m_edge_confidence_mask_s_v_u;
     Vec<Mat> m_disp_confidence_s_v_u;
+#ifdef _USE_LINE_CONFIDENCE_SCORE
     Vec<Mat> m_line_confidence_s_v_u;
+#endif
     Vec<Mat> m_rbar_s_v_u;
     Vec<Mat> m_best_depth_s_v_u;
 
@@ -716,7 +718,9 @@ Depth2DComputer<DataType>::Depth2DComputer
     
     m_edge_confidence_s_v_u = Vec<Mat>(dim_s);
     m_disp_confidence_s_v_u = Vec<Mat>(dim_s);
+#ifdef _USE_LINE_CONFIDENCE_SCORE
     m_line_confidence_s_v_u = Vec<Mat>(dim_s);
+#endif
     m_best_depth_s_v_u = Vec<Mat>(dim_s);
     m_rbar_s_v_u = Vec<Mat>(dim_s);
 
@@ -727,9 +731,11 @@ Depth2DComputer<DataType>::Depth2DComputer
     
         // Disparity confidence
         m_disp_confidence_s_v_u[s] = Mat(dim_v, dim_u, CV_32FC1);
-        
+
+#ifdef _USE_LINE_CONFIDENCE_SCORE
         // Line confidence
         m_line_confidence_s_v_u[s] = Mat(dim_v, dim_u, CV_32FC1);
+#endif
         
         // Scores and best scores & depths
         m_best_depth_s_v_u[s] = cv::Mat::zeros(dim_v, dim_u, CV_32FC1);
@@ -782,7 +788,11 @@ void Depth2DComputer<DataType>::run()
         m_edge_confidence_s_v_u,
         m_edge_confidence_mask_s_v_u,
         m_disp_confidence_s_v_u,
+#ifdef _USE_LINE_CONFIDENCE_SCORE
         m_line_confidence_s_v_u,
+#else
+        rslf::no_vec,
+#endif
         m_best_depth_s_v_u,
         m_rbar_s_v_u,
         m_parameters,
@@ -822,17 +832,17 @@ Mat Depth2DComputer<DataType>::get_coloured_epi(int a_v, int a_cv_colormap) {
     Mat coloured_epi = cv::Mat::zeros(dim_s, dim_u, CV_8UC3);
     for (int s=0; s<dim_s; s++)
     {
-        Mat edge_confidence_mask_u = m_edge_confidence_mask_s_v_u[s].row(a_v);
-        Mat line_confidence_mask_u = m_line_confidence_s_v_u[s].row(a_v) > m_parameters.par_line_score_threshold;
-        Mat disp_confidence_mask_u = m_disp_confidence_s_v_u[s].row(a_v) > m_parameters.par_disp_score_threshold;
         for (int u=0; u<dim_u; u++)
         {
             // Only paint if the confidence threshold was high enough
 #ifdef _USE_DISP_CONFIDENCE_SCORE
+            Mat disp_confidence_mask_u = m_disp_confidence_s_v_u[s].row(a_v) > m_parameters.par_disp_score_threshold;
             if (disp_confidence_mask_u.at<uchar>(u))
 #elseif define(_USE_LINE_CONFIDENCE_SCORE)
+            Mat line_confidence_mask_u = m_line_confidence_s_v_u[s].row(a_v) > m_parameters.par_line_score_threshold;
             if (line_confidence_mask_u.at<uchar>(u))
 #else
+            Mat edge_confidence_mask_u = m_edge_confidence_mask_s_v_u[s].row(a_v);
             if (edge_confidence_mask_u.at<uchar>(u))
 #endif
             {
